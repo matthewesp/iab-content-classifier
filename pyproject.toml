@@ -1,0 +1,14 @@
+[project]
+name = "iab-content-classifier"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "easyocr>=1.7.2",
+    "opencv-python>=4.13.0.92",
+    "soundfile>=0.13.1",
+    "torch>=2.11.0",
+    "torchvision>=0.26.0",
+    "transformers>=5.6.2",
+]
