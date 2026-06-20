@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import shutil
 import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterator
@@ -11,6 +12,14 @@ import numpy as np
 import torch
 
 import easyocr
+
+
+# AVFOUNDATION is the macOS-native backend (VideoToolbox HW decode) but it
+# does not exist on Linux. FFMPEG is universally available — we use it on
+# everything but darwin so the same code runs on Colab/Linux unchanged.
+_VIDEO_CAPTURE_BACKEND = (
+    cv2.CAP_AVFOUNDATION if sys.platform == "darwin" else cv2.CAP_FFMPEG
+)
 
 
 def get_device() -> str:
@@ -91,9 +100,9 @@ class VideoProcessor:
         self,
         video_path: Path,
     ) -> Iterator[tuple[int, float, np.ndarray]]:
-        # CAP_AVFOUNDATION is the native macOS backend — avoids FFmpeg's libav path
-        # that ships with OpenCV and hits VideoToolbox HW decode directly.
-        cap = cv2.VideoCapture(str(video_path), cv2.CAP_AVFOUNDATION)
+        # AVFOUNDATION on darwin (VideoToolbox HW decode), FFMPEG everywhere
+        # else (Linux/Colab). See _VIDEO_CAPTURE_BACKEND at module top.
+        cap = cv2.VideoCapture(str(video_path), _VIDEO_CAPTURE_BACKEND)
         if not cap.isOpened():
             raise RuntimeError(f"cannot open video: {video_path}")
 

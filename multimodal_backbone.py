@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -139,11 +140,19 @@ class MultimodalBackbone(nn.Module):
         self,
         text_model_name: str = "distilbert-base-uncased",
         audio_model_name: str = "openai/whisper-tiny",
+        video_model_name: str = "facebook/dino-vits16",
+        use_pretrained_video: bool = True,
         video_kwargs: dict | None = None,
         freeze: bool = True,
     ) -> None:
         super().__init__()
         self.device = get_device()
+        self.use_pretrained_video = use_pretrained_video
+        # Stored so callers (e.g. cache.py) can include them in cache keys —
+        # different model means different embedding, must invalidate.
+        self.text_model_name = text_model_name
+        self.audio_model_name = audio_model_name
+        self.video_model_name = video_model_name if use_pretrained_video else "custom_video_transformer"
 
         self.text_tokenizer = AutoTokenizer.from_pretrained(text_model_name)
         self.text_encoder = AutoModel.from_pretrained(text_model_name).to(self.device)
@@ -154,19 +163,41 @@ class MultimodalBackbone(nn.Module):
         self.audio_encoder = whisper.encoder.to(self.device)
         del whisper
 
-        self.video_encoder = VideoTransformer(**(video_kwargs or {})).to(self.device)
+        if use_pretrained_video:
+            # DINO ViT-S/16 by default — self-supervised, 384-dim CLS features.
+            # The image processor handles the model's exact resize/normalize stats;
+            # we don't reuse the legacy IMAGENET buffers in this path.
+            self.video_image_processor = AutoImageProcessor.from_pretrained(video_model_name)
+            self.video_encoder = AutoModel.from_pretrained(video_model_name).to(self.device)
+            video_dim = self.video_encoder.config.hidden_size
+        else:
+            self.video_image_processor = None
+            self.video_encoder = VideoTransformer(**(video_kwargs or {})).to(self.device)
+            video_dim = self.video_encoder.embed_dim
 
+        # Buffers stay registered for the legacy path — harmless when unused.
         self.register_buffer("_img_mean", _IMAGENET_MEAN.to(self.device), persistent=False)
         self.register_buffer("_img_std", _IMAGENET_STD.to(self.device), persistent=False)
 
         self.embed_dims = {
             "text": self.text_encoder.config.hidden_size,
             "audio": self.audio_encoder.config.d_model,
-            "video": self.video_encoder.embed_dim,
+            "video": video_dim,
         }
 
         if freeze:
             self.freeze_pretrained()
+
+        # fp16 autocast on CUDA: backbones are frozen + inference-only, so no
+        # NaN risk from training dynamics. Halves activation memory and gives
+        # ~1.5-2x on backbone forwards. MPS autocast is edge-case-y so we
+        # leave it disabled there; downstream fused/router math stays fp32.
+        self.amp_enabled = self.device == "cuda"
+
+    def _amp_ctx(self):
+        if self.amp_enabled:
+            return torch.autocast("cuda", dtype=torch.float16)
+        return contextlib.nullcontext()
 
     def freeze_pretrained(self) -> None:
         for p in self.text_encoder.parameters():
@@ -175,6 +206,10 @@ class MultimodalBackbone(nn.Module):
             p.requires_grad_(False)
         self.text_encoder.train(False)
         self.audio_encoder.train(False)
+        if self.use_pretrained_video:
+            for p in self.video_encoder.parameters():
+                p.requires_grad_(False)
+            self.video_encoder.train(False)
 
     @torch.inference_mode()
     def encode_text(self, texts: list[str], max_length: int = 128) -> torch.Tensor:
@@ -182,8 +217,10 @@ class MultimodalBackbone(nn.Module):
             texts, padding=True, truncation=True, max_length=max_length,
             return_tensors="pt",
         ).to(self.device)
-        out = self.text_encoder(**tokens)
-        return out.last_hidden_state[:, 0]
+        with self._amp_ctx():
+            out = self.text_encoder(**tokens)
+            cls = out.last_hidden_state[:, 0]
+        return cls.float()
 
     @torch.inference_mode()
     def encode_audio(self, wav_paths: list[Path]) -> torch.Tensor:
@@ -205,12 +242,44 @@ class MultimodalBackbone(nn.Module):
             return_tensors="pt",
         ).input_features.to(self.device)
 
-        out = self.audio_encoder(features)
-        return out.last_hidden_state.mean(dim=1)
+        with self._amp_ctx():
+            out = self.audio_encoder(features)
+            pooled = out.last_hidden_state.mean(dim=1)
+        return pooled.float()
 
     @torch.inference_mode()
     def encode_video(self, frames_bgr: np.ndarray | torch.Tensor) -> torch.Tensor:
         # frames_bgr: (B, T, H, W, 3) uint8 BGR, or a pre-built float tensor.
+        if self.use_pretrained_video:
+            return self._encode_video_pretrained(frames_bgr)
+        return self._encode_video_legacy(frames_bgr)
+
+    def _encode_video_pretrained(self, frames_bgr: np.ndarray | torch.Tensor) -> torch.Tensor:
+        # The HF image processor wants list-of-arrays/PIL on CPU. Convert BGR→RGB
+        # on-device first, then move to CPU for preprocessing — exactly one
+        # device→host transfer per video. The processor handles model-specific
+        # resize/center-crop/normalize so we don't risk drift from DINO's stats.
+        if isinstance(frames_bgr, torch.Tensor):
+            x = frames_bgr.detach().cpu().numpy()
+        else:
+            x = frames_bgr
+        if x.dtype != np.uint8:
+            x = (np.clip(x, 0, 1) * 255).astype(np.uint8) if x.max() <= 1.0 else x.astype(np.uint8)
+
+        B, T = x.shape[:2]
+        rgb = x[..., [2, 1, 0]]                          # BGR → RGB, copy
+        flat = list(rgb.reshape(B * T, *rgb.shape[2:]))  # list of (H, W, 3) uint8
+
+        inputs = self.video_image_processor(images=flat, return_tensors="pt")
+        pixel_values = inputs["pixel_values"].to(self.device, non_blocking=True)
+
+        with self._amp_ctx():
+            out = self.video_encoder(pixel_values=pixel_values)
+            cls = out.last_hidden_state[:, 0]            # (B*T, D)
+            pooled = cls.view(B, T, -1).mean(dim=1)      # (B, D)
+        return pooled.float()
+
+    def _encode_video_legacy(self, frames_bgr: np.ndarray | torch.Tensor) -> torch.Tensor:
         # One numpy→device hop here; keep every subsequent op on-device so we
         # don't ping-pong the unified-memory buffer.
         if isinstance(frames_bgr, np.ndarray):
@@ -232,7 +301,9 @@ class MultimodalBackbone(nn.Module):
             ).reshape(B, T, 3, target, target)
 
         x = (x - self._img_mean) / self._img_std
-        return self.video_encoder(x)
+        with self._amp_ctx():
+            out = self.video_encoder(x)
+        return out.float()
 
     def forward(
         self,

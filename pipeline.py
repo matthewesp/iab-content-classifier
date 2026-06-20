@@ -3,17 +3,27 @@ from __future__ import annotations
 import json
 import sys
 import tempfile
-from dataclasses import dataclass
+import time
+from dataclasses import dataclass, field
 from pathlib import Path
 
+import cv2
 import numpy as np
 import torch
 import transformers
 
+from cache import StageCache
 from cascading_classifier import CascadeResult
 from multimodal_backbone import MultimodalBackbone
 from taxonomy import build_classifier, load_taxonomy
 from video_processor import OCRHit, VideoProcessor, get_device
+
+# mlx-whisper is Apple-Silicon-only; absent on Linux / x86 macs / CI. The HF
+# transformers pipeline below is the fallback for those environments.
+try:
+    import mlx_whisper as _mlx_whisper  # type: ignore[import-not-found]
+except ImportError:
+    _mlx_whisper = None
 
 
 @dataclass
@@ -27,6 +37,11 @@ class FeatureExtraction:
     ocr_text: str
     asr_text: str
     text_input: str
+    # Wall-clock seconds per stage, populated when extract_features runs with
+    # profiling enabled. MPS-touching stages call torch.mps.synchronize() before
+    # reading the timer so the value reflects actual GPU completion, not just
+    # kernel launch. Empty in non-profile paths.
+    stage_timings: dict[str, float] = field(default_factory=dict)
 
 
 class VideoClassifier:
@@ -51,10 +66,19 @@ class VideoClassifier:
         caption_only: bool = True,
         caption_min_y: float = 0.20,            # default band targets TikTok-style
         caption_max_y: float = 0.70,            # captions: upper-middle of frame.
-        caption_min_width_frac: float = 0.25,   # large-only: ≥25% frame width
-        caption_min_height_frac: float = 0.06,  # large-only: ≥6% frame height (font size)
+        caption_min_width_frac: float = 0.05,   # ≥5% frame width — small text won't
+                                                # span 25%; raise for wide-only filters.
+        caption_min_height_frac: float | None = None,  # derived from caption_min_pt
+                                                       # below if not explicitly set.
+        caption_min_pt: float = 18.0,           # text height floor in points; 18pt
+                                                # at 1080p ≈ 24px ≈ 2.2% frame height.
+        caption_reference_height_px: int = 1080,  # the frame height the pt mapping
+                                                  # assumes; override per source res.
         caption_min_chars: int = 3,
+        ocr_dedup_threshold: float = 8.0,
         router_weights_dir: Path | None = Path("models"),
+        cache_root: Path | None = Path("data/cache"),
+        force_leaf: bool = False,
     ) -> None:
         self.device = get_device()
 
@@ -72,11 +96,29 @@ class VideoClassifier:
             ocr_min_confidence=ocr_min_confidence,
         )
         self.backbone = MultimodalBackbone()
-        self.asr = transformers.pipeline(
-            "automatic-speech-recognition",
-            model=asr_model,
-            device=self.device,
-        )
+        self.asr_model_name = asr_model
+        # Prefer mlx-whisper on Apple Silicon — runs Whisper natively on the
+        # ANE/GPU and is ~3-5x faster than HF transformers Whisper on M1. The
+        # HF pipeline is only loaded as a fallback when mlx-whisper is absent.
+        # Note: backbone.audio_encoder still uses HF Whisper-encoder weights
+        # for the audio embedding; mlx-whisper doesn't expose hidden states.
+        if _mlx_whisper is not None:
+            self.asr_engine = "mlx"
+            self._mlx_whisper_repo = "mlx-community/whisper-tiny"
+            self.asr = None
+        else:
+            self.asr_engine = "hf"
+            self._mlx_whisper_repo = None
+            self.asr = transformers.pipeline(
+                "automatic-speech-recognition",
+                model=asr_model,
+                device=self.device,
+            )
+        print(f"[pipeline] ASR engine: {self.asr_engine}", file=sys.stderr)
+        # Per-stage on-disk cache. Set to None to disable (e.g. for benchmarks
+        # that need cold-cache numbers). Each stage hashes its own params, so
+        # changing sample_fps invalidates only OCR + video_emb, not ASR.
+        self.cache_root = Path(cache_root) if cache_root is not None else None
         self.taxonomy = load_taxonomy(taxonomy_path)
         self.in_dim = sum(self.backbone.embed_dims.values())   # 768 + 384 + 192 = 1344
         # router_weights_dir is silently ignored if it doesn't exist yet (no
@@ -88,52 +130,225 @@ class VideoClassifier:
             confidence_threshold=confidence_threshold,
             max_active_routers=max_active_routers,
             router_weights_dir=weights_dir,
+            force_leaf=force_leaf,
         )
 
         self.caption_only = caption_only
         self.caption_min_y = caption_min_y
         self.caption_max_y = caption_max_y
         self.caption_min_width_frac = caption_min_width_frac
+        # Derive height fraction from points when not explicitly given.
+        # Mapping: 1pt = 4/3 px at 96-DPI standard rendering. Frame height
+        # serves as the canvas reference; OCR bbox heights are normalized to
+        # the actual frame's height at filter time, so this is invariant to
+        # the actual capture resolution as long as captions were authored at
+        # the reference scale.
+        if caption_min_height_frac is None:
+            caption_min_height_frac = (caption_min_pt * 4.0 / 3.0) / caption_reference_height_px
         self.caption_min_height_frac = caption_min_height_frac
+        self.caption_min_pt = caption_min_pt
+        self.caption_reference_height_px = caption_reference_height_px
         self.caption_min_chars = caption_min_chars
+        # Mean per-pixel absdiff threshold (uint8 grayscale, 64x64 downsample)
+        # below which a frame is considered a near-duplicate of the last frame
+        # we OCR'd, and OCR is skipped. 0 disables dedup. ~8.0 ≈ 3% mean change
+        # — fine for static-caption TikTok-style videos; raise for noisier
+        # camera content.
+        self.ocr_dedup_threshold = ocr_dedup_threshold
 
-    def extract_features(self, video_path: Path) -> FeatureExtraction:
+    def extract_features(
+        self,
+        video_path: Path,
+        *,
+        profile: bool = False,
+        use_cache: bool = True,
+    ) -> FeatureExtraction:
         """Run the backbone on a video; return the fused 1344-dim feature plus
         the OCR/ASR metadata. Same featurization classify() uses internally —
         factored out so training-time caching can reuse it without invoking
-        the (untrained, noise-producing) classifier."""
+        the (untrained, noise-producing) classifier.
+
+        profile=True populates FeatureExtraction.stage_timings with per-stage
+        wall-clock seconds. MPS stages are synchronized before the timer reads,
+        so values reflect GPU completion — at the cost of breaking Python/MPS
+        pipelining. Leave False in production paths.
+
+        use_cache=True reads/writes per-stage artifacts under self.cache_root.
+        A warm cache reduces a ~60s call to <1s. Pass False to force cold
+        recomputation (e.g. when benchmarking a backbone swap)."""
         video_path = Path(video_path)
         if not video_path.exists():
             raise FileNotFoundError(video_path)
 
+        timings: dict[str, float] | None = {} if profile else None
+        cache = StageCache(self.cache_root, video_path) if (use_cache and self.cache_root is not None) else None
+
+        # Stage param sets — anything that affects a stage's output goes in
+        # its dict. Different params produce different cache filenames, so
+        # tweaks coexist on disk and don't trash prior runs.
+        ocr_params = {
+            "sample_fps": self.vp.sample_fps,
+            "ocr_dedup_threshold": self.ocr_dedup_threshold,
+            "ocr_min_confidence": self.vp.ocr_min_confidence,
+            "caption_only": self.caption_only,
+            "caption_min_y": self.caption_min_y,
+            "caption_max_y": self.caption_max_y,
+            "caption_min_width_frac": self.caption_min_width_frac,
+            "caption_min_height_frac": self.caption_min_height_frac,
+            "caption_min_chars": self.caption_min_chars,
+        }
+        asr_params = {
+            "asr_model": self.asr_model_name,
+            "asr_engine": self.asr_engine,
+        }
+        audio_emb_params = {"audio_model": self.backbone.audio_model_name}
+        video_emb_params = {
+            "video_model": self.backbone.video_model_name,
+            "sample_fps": self.vp.sample_fps,
+        }
+        # text_emb depends on the actual text content (asr + ocr concatenation),
+        # which we don't know until ASR + OCR are resolved. Built below.
+
+        # ---- Cache reads up front so we know what to compute ----
+        ocr_cached = cache.get_ocr(ocr_params) if cache else None
+        asr_text = cache.get_asr(asr_params) if cache else None
+        audio_emb = cache.get_tensor("audio_emb", audio_emb_params) if cache else None
+        video_emb = cache.get_tensor("video_emb", video_emb_params) if cache else None
+
+        if ocr_cached is not None:
+            frames_sampled, ocr_hits = ocr_cached
+        else:
+            frames_sampled, ocr_hits = 0, []
+
+        needs_frames = (ocr_cached is None) or (video_emb is None)
+        needs_wav = (asr_text is None) or (audio_emb is None)
+
         with tempfile.TemporaryDirectory(prefix="iab_pipe_") as tmp:
             wav_path = Path(tmp) / "audio.wav"
-            self.vp.extract_audio(video_path, wav_path)
+            if needs_wav:
+                t0 = time.perf_counter() if profile else 0.0
+                self.vp.extract_audio(video_path, wav_path)
+                if profile:
+                    timings["extract_audio_s"] = time.perf_counter() - t0
 
-            frames, ocr_hits = self._scan_video(video_path)
+            frames: np.ndarray | None = None
+            if needs_frames:
+                if ocr_cached is None:
+                    # Full scan: produces both frames and OCR.
+                    frames, ocr_hits = self._scan_video(video_path, timings=timings)
+                    frames_sampled = frames.shape[0]
+                    if cache:
+                        cache.set_ocr(ocr_params, frames_sampled, ocr_hits)
+                else:
+                    # OCR cached, but video_emb missing — re-decode frames only,
+                    # skipping the OCR call per frame entirely.
+                    frames = self._iter_frames_only(video_path, timings=timings)
+                    # frames_sampled already populated from cache; sanity-check.
 
-            asr_text = self._transcribe(wav_path)
+            # ASR
+            if asr_text is None:
+                t0 = time.perf_counter() if profile else 0.0
+                asr_text = self._transcribe(wav_path)
+                if profile:
+                    self._mps_sync()
+                    timings["transcribe_s"] = time.perf_counter() - t0
+                if cache:
+                    cache.set_asr(asr_params, asr_text)
+
             ocr_text = " ".join(h.text for h in ocr_hits).strip()
             text = f"{asr_text} {ocr_text}".strip()
 
-            if text:
-                text_emb = self.backbone.encode_text([text], max_length=256)
+            # text_emb (cached on the actual text content + model)
+            text_emb_params = {
+                "text_model": self.backbone.text_model_name,
+                "max_length": 256,
+                "text_input": text,
+            }
+            text_emb = cache.get_tensor("text_emb", text_emb_params) if cache else None
+            if text_emb is None:
+                t0 = time.perf_counter() if profile else 0.0
+                if text:
+                    text_emb = self.backbone.encode_text([text], max_length=256)
+                else:
+                    text_emb = torch.zeros(
+                        1, self.backbone.embed_dims["text"], device=self.device,
+                    )
+                if profile:
+                    self._mps_sync()
+                    timings["encode_text_s"] = time.perf_counter() - t0
+                if cache:
+                    cache.set_tensor("text_emb", text_emb_params, text_emb)
             else:
-                text_emb = torch.zeros(
-                    1, self.backbone.embed_dims["text"], device=self.device,
-                )
-            audio_emb = self.backbone.encode_audio([wav_path])
-            video_emb = self.backbone.encode_video(frames[None])    # (1, T, H, W, 3)
+                text_emb = text_emb.to(self.device)
+
+            # audio_emb
+            if audio_emb is None:
+                t0 = time.perf_counter() if profile else 0.0
+                audio_emb = self.backbone.encode_audio([wav_path])
+                if profile:
+                    self._mps_sync()
+                    timings["encode_audio_s"] = time.perf_counter() - t0
+                if cache:
+                    cache.set_tensor("audio_emb", audio_emb_params, audio_emb)
+            else:
+                audio_emb = audio_emb.to(self.device)
+
+            # video_emb
+            if video_emb is None:
+                t0 = time.perf_counter() if profile else 0.0
+                video_emb = self.backbone.encode_video(frames[None])    # (1, T, H, W, 3)
+                if profile:
+                    self._mps_sync()
+                    timings["encode_video_s"] = time.perf_counter() - t0
+                if cache:
+                    cache.set_tensor("video_emb", video_emb_params, video_emb)
+            else:
+                video_emb = video_emb.to(self.device)
+
             fused = torch.cat([text_emb, audio_emb, video_emb], dim=-1)
 
         return FeatureExtraction(
             feature=fused,
-            frames_sampled=frames.shape[0],
+            frames_sampled=frames_sampled,
             ocr_hits=ocr_hits,
             ocr_text=ocr_text,
             asr_text=asr_text,
             text_input=text,
+            stage_timings=timings or {},
         )
+
+    def _iter_frames_only(
+        self,
+        video_path: Path,
+        *,
+        timings: dict[str, float] | None = None,
+    ) -> np.ndarray:
+        # Decode + collect frames without the OCR call. Used when OCR results
+        # are cached but video_emb still needs to be computed.
+        frames: list[np.ndarray] = []
+        iter_total = 0.0
+        gen = self.vp.iter_frames(video_path)
+        while True:
+            t0 = time.perf_counter() if timings is not None else 0.0
+            try:
+                _, _, frame = next(gen)
+            except StopIteration:
+                break
+            if timings is not None:
+                iter_total += time.perf_counter() - t0
+            frames.append(frame)
+        if not frames:
+            raise RuntimeError(f"no frames decoded from {video_path}")
+        if timings is not None:
+            timings["iter_frames_s"] = iter_total
+        return np.stack(frames)
+
+    def _mps_sync(self) -> None:
+        # Force any pending MPS kernels to complete so the next perf_counter
+        # read reflects actual GPU work, not just kernel launch dispatch. No-op
+        # on CPU / CUDA.
+        if self.device == "mps":
+            torch.mps.synchronize()
 
     def classify(self, video_path: Path) -> dict:
         ext = self.extract_features(video_path)
@@ -169,13 +384,71 @@ class VideoClassifier:
             return False
         return True
 
-    def _scan_video(self, video_path: Path) -> tuple[np.ndarray, list[OCRHit]]:
+    def _scan_video(
+        self,
+        video_path: Path,
+        *,
+        timings: dict[str, float] | None = None,
+    ) -> tuple[np.ndarray, list[OCRHit]]:
+        # When timings is provided, accumulate per-frame iter / OCR / dedup
+        # seconds + counts. iter_frames is a generator so we time around the
+        # `next()` resumption rather than the whole loop body.
+        #
+        # Dedup: each new frame is compared against the last frame we actually
+        # ran OCR on (NOT the immediate previous frame, to avoid slow drift
+        # silently accumulating past the threshold). Comparison is mean absdiff
+        # on a 64x64 grayscale downsample — ~6000x cheaper than full-res diff
+        # and good enough to distinguish "same caption" from "scene cut".
         frames: list[np.ndarray] = []
         ocr_hits: list[OCRHit] = []
-        for idx, ts, frame in self.vp.iter_frames(video_path):
+        iter_total = 0.0
+        ocr_total = 0.0
+        dedup_total = 0.0
+        ocr_calls = 0
+        dedup_skipped = 0
+        last_ocr_thumb: np.ndarray | None = None
+        gen = self.vp.iter_frames(video_path)
+        while True:
+            t_iter = time.perf_counter() if timings is not None else 0.0
+            try:
+                idx, ts, frame = next(gen)
+            except StopIteration:
+                break
+            if timings is not None:
+                iter_total += time.perf_counter() - t_iter
             frames.append(frame)
             h, w = frame.shape[:2]
-            for bbox, text, conf in self.vp.ocr_frame(frame):
+
+            # Dedup gate.
+            skip_ocr = False
+            if self.ocr_dedup_threshold > 0:
+                t_dd = time.perf_counter() if timings is not None else 0.0
+                thumb = cv2.resize(
+                    cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY),
+                    (64, 64), interpolation=cv2.INTER_AREA,
+                )
+                if last_ocr_thumb is not None:
+                    diff = float(cv2.absdiff(thumb, last_ocr_thumb).mean())
+                    if diff < self.ocr_dedup_threshold:
+                        skip_ocr = True
+                if timings is not None:
+                    dedup_total += time.perf_counter() - t_dd
+            else:
+                thumb = None
+
+            if skip_ocr:
+                if timings is not None:
+                    dedup_skipped += 1
+                continue
+
+            t_ocr = time.perf_counter() if timings is not None else 0.0
+            results = self.vp.ocr_frame(frame)
+            if timings is not None:
+                self._mps_sync()
+                ocr_total += time.perf_counter() - t_ocr
+                ocr_calls += 1
+            last_ocr_thumb = thumb
+            for bbox, text, conf in results:
                 if conf < self.vp.ocr_min_confidence:
                     continue
                 if self.caption_only and not self._is_caption_like(bbox, h, w, text):
@@ -189,13 +462,26 @@ class VideoClassifier:
                 ))
         if not frames:
             raise RuntimeError(f"no frames decoded from {video_path}")
+        if timings is not None:
+            timings["iter_frames_s"] = iter_total
+            timings["ocr_s"] = ocr_total
+            timings["dedup_s"] = dedup_total
+            timings["ocr_n_calls"] = float(ocr_calls)
+            timings["dedup_skipped"] = float(dedup_skipped)
         return np.stack(frames), ocr_hits
 
     def _transcribe(self, wav_path: Path) -> str:
-        # return_timestamps=True is required once audio exceeds 30s — Whisper
-        # switches to long-form chunked generation which predicts timestamp
-        # tokens. The top-level "text" field still holds the concatenated
-        # transcription; the per-chunk timestamps live under "chunks".
+        if self.asr_engine == "mlx":
+            # mlx-whisper handles long-form chunking internally. Returns the
+            # same shape ({"text": ..., "segments": [...]}) as openai-whisper.
+            out = _mlx_whisper.transcribe(
+                str(wav_path), path_or_hf_repo=self._mlx_whisper_repo,
+            )
+            return (out.get("text") or "").strip()
+        # HF fallback path. return_timestamps=True is required once audio
+        # exceeds 30s — Whisper switches to long-form chunked generation which
+        # predicts timestamp tokens. The top-level "text" field still holds
+        # the concatenated transcription; per-chunk stamps live under "chunks".
         out = self.asr(str(wav_path), return_timestamps=True)
         if isinstance(out, dict) and "text" in out:
             return out["text"].strip()

@@ -7,3 +7,10 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+.agents/
+.claude/
+skills-lock.json
+
+data/cache/
+data/videos/
+iab/

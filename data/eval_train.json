@@ -1,0 +1,725 @@
+{
+  "labels_csv": "data/labels.csv",
+  "n": 40,
+  "threshold": 0.8,
+  "force_leaf": true,
+  "leaf_accuracy": 0.975,
+  "cascade_reached_leaf": 40,
+  "tier_accuracy": {
+    "0": {
+      "correct": 40,
+      "total": 40
+    },
+    "1": {
+      "correct": 39,
+      "total": 40
+    }
+  },
+  "router_accuracy": {
+    "150": {
+      "correct": 39,
+      "total": 40
+    },
+    "__root__": {
+      "correct": 40,
+      "total": 40
+    }
+  },
+  "confusion": {
+    "151": {
+      "151": 9,
+      "179": 1
+    },
+    "179": {
+      "179": 10
+    },
+    "181": {
+      "181": 10
+    },
+    "153": {
+      "153": 10
+    }
+  },
+  "per_sample": [
+    {
+      "video": "data/videos/tiktok_search_Amusement_and_Theme_Parks_7476498916490349855.mp4",
+      "truth_leaf_id": "151",
+      "truth_leaf_name": "Amusement and Theme Parks",
+      "truth_path": [
+        "150",
+        "151"
+      ],
+      "pred_path": [
+        "150",
+        "151"
+      ],
+      "pred_leaf_id": "151",
+      "pred_leaf_name": "Amusement and Theme Parks",
+      "final_confidence": 0.997607946395874,
+      "leaf_correct": true
+    },
+    {
+      "video": "data/videos/tiktok_search_Amusement_and_Theme_Parks_7524506938613320974.mp4",
+      "truth_leaf_id": "151",
+      "truth_leaf_name": "Amusement and Theme Parks",
+      "truth_path": [
+        "150",
+        "151"
+      ],
+      "pred_path": [
+        "150",
+        "179"
+      ],
+      "pred_leaf_id": "179",
+      "pred_leaf_name": "Bars & Restaurants",
+      "final_confidence": 0.5445395112037659,
+      "leaf_correct": false
+    },
+    {
+      "video": "data/videos/tiktok_search_Amusement_and_Theme_Parks_7537397037629771063.mp4",
+      "truth_leaf_id": "151",
+      "truth_leaf_name": "Amusement and Theme Parks",
+      "truth_path": [
+        "150",
+        "151"
+      ],
+      "pred_path": [
+        "150",
+        "151"
+      ],
+      "pred_leaf_id": "151",
+      "pred_leaf_name": "Amusement and Theme Parks",
+      "final_confidence": 0.9961943626403809,
+      "leaf_correct": true
+    },
+    {
+      "video": "data/videos/tiktok_search_Amusement_and_Theme_Parks_7589877816066313502.mp4",
+      "truth_leaf_id": "151",
+      "truth_leaf_name": "Amusement and Theme Parks",
+      "truth_path": [
+        "150",
+        "151"
+      ],
+      "pred_path": [
+        "150",
+        "151"
+      ],
+      "pred_leaf_id": "151",
+      "pred_leaf_name": "Amusement and Theme Parks",
+      "final_confidence": 0.9992089867591858,
+      "leaf_correct": true
+    },
+    {
+      "video": "data/videos/tiktok_search_Amusement_and_Theme_Parks_7623487062997519629.mp4",
+      "truth_leaf_id": "151",
+      "truth_leaf_name": "Amusement and Theme Parks",
+      "truth_path": [
+        "150",
+        "151"
+      ],
+      "pred_path": [
+        "150",
+        "151"
+      ],
+      "pred_leaf_id": "151",
+      "pred_leaf_name": "Amusement and Theme Parks",
+      "final_confidence": 0.6510884165763855,
+      "leaf_correct": true
+    },
+    {
+      "video": "data/videos/tiktok_search_Amusement_and_Theme_Parks_7624915142609865998.mp4",
+      "truth_leaf_id": "151",
+      "truth_leaf_name": "Amusement and Theme Parks",
+      "truth_path": [
+        "150",
+        "151"
+      ],
+      "pred_path": [
+        "150",
+        "151"
+      ],
+      "pred_leaf_id": "151",
+      "pred_leaf_name": "Amusement and Theme Parks",
+      "final_confidence": 0.9989198446273804,
+      "leaf_correct": true
+    },
+    {
+      "video": "data/videos/tiktok_search_Amusement_and_Theme_Parks_7626618755501624590.mp4",
+      "truth_leaf_id": "151",
+      "truth_leaf_name": "Amusement and Theme Parks",
+      "truth_path": [
+        "150",
+        "151"
+      ],
+      "pred_path": [
+        "150",
+        "151"
+      ],
+      "pred_leaf_id": "151",
+      "pred_leaf_name": "Amusement and Theme Parks",
+      "final_confidence": 0.8993741869926453,
+      "leaf_correct": true
+    },
+    {
+      "video": "data/videos/tiktok_search_Amusement_and_Theme_Parks_7631747164963654925.mp4",
+      "truth_leaf_id": "151",
+      "truth_leaf_name": "Amusement and Theme Parks",
+      "truth_path": [
+        "150",
+        "151"
+      ],
+      "pred_path": [
+        "150",
+        "151"
+      ],
+      "pred_leaf_id": "151",
+      "pred_leaf_name": "Amusement and Theme Parks",
+      "final_confidence": 0.9976911544799805,
+      "leaf_correct": true
+    },
+    {
+      "video": "data/videos/tiktok_search_Amusement_and_Theme_Parks_7632339256135994655.mp4",
+      "truth_leaf_id": "151",
+      "truth_leaf_name": "Amusement and Theme Parks",
+      "truth_path": [
+        "150",
+        "151"
+      ],
+      "pred_path": [
+        "150",
+        "151"
+      ],
+      "pred_leaf_id": "151",
+      "pred_leaf_name": "Amusement and Theme Parks",
+      "final_confidence": 0.9851915836334229,
+      "leaf_correct": true
+    },
+    {
+      "video": "data/videos/tiktok_search_Amusement_and_Theme_Parks_7632448137579203854.mp4",
+      "truth_leaf_id": "151",
+      "truth_leaf_name": "Amusement and Theme Parks",
+      "truth_path": [
+        "150",
+        "151"
+      ],
+      "pred_path": [
+        "150",
+        "151"
+      ],
+      "pred_leaf_id": "151",
+      "pred_leaf_name": "Amusement and Theme Parks",
+      "final_confidence": 0.9972637891769409,
+      "leaf_correct": true
+    },
+    {
+      "video": "data/videos/tiktok_search_Bars___resturants_7619851781132127508.mp4",
+      "truth_leaf_id": "179",
+      "truth_leaf_name": "Bars & Restaurants",
+      "truth_path": [
+        "150",
+        "179"
+      ],
+      "pred_path": [
+        "150",
+        "179"
+      ],
+      "pred_leaf_id": "179",
+      "pred_leaf_name": "Bars & Restaurants",
+      "final_confidence": 0.9975568056106567,
+      "leaf_correct": true
+    },
+    {
+      "video": "data/videos/tiktok_search_Bars___resturants_7621712213622983966.mp4",
+      "truth_leaf_id": "179",
+      "truth_leaf_name": "Bars & Restaurants",
+      "truth_path": [
+        "150",
+        "179"
+      ],
+      "pred_path": [
+        "150",
+        "179"
+      ],
+      "pred_leaf_id": "179",
+      "pred_leaf_name": "Bars & Restaurants",
+      "final_confidence": 0.9994175434112549,
+      "leaf_correct": true
+    },
+    {
+      "video": "data/videos/tiktok_search_Bars___resturants_7624394082822999309.mp4",
+      "truth_leaf_id": "179",
+      "truth_leaf_name": "Bars & Restaurants",
+      "truth_path": [
+        "150",
+        "179"
+      ],
+      "pred_path": [
+        "150",
+        "179"
+      ],
+      "pred_leaf_id": "179",
+      "pred_leaf_name": "Bars & Restaurants",
+      "final_confidence": 0.9994639754295349,
+      "leaf_correct": true
+    },
+    {
+      "video": "data/videos/tiktok_search_Bars___resturants_7625822958744816927.mp4",
+      "truth_leaf_id": "179",
+      "truth_leaf_name": "Bars & Restaurants",
+      "truth_path": [
+        "150",
+        "179"
+      ],
+      "pred_path": [
+        "150",
+        "179"
+      ],
+      "pred_leaf_id": "179",
+      "pred_leaf_name": "Bars & Restaurants",
+      "final_confidence": 0.9991039633750916,
+      "leaf_correct": true
+    },
+    {
+      "video": "data/videos/tiktok_search_Bars___resturants_7626166343783550222.mp4",
+      "truth_leaf_id": "179",
+      "truth_leaf_name": "Bars & Restaurants",
+      "truth_path": [
+        "150",
+        "179"
+      ],
+      "pred_path": [
+        "150",
+        "179"
+      ],
+      "pred_leaf_id": "179",
+      "pred_leaf_name": "Bars & Restaurants",
+      "final_confidence": 0.9871920347213745,
+      "leaf_correct": true
+    },
+    {
+      "video": "data/videos/tiktok_search_Bars___resturants_7627575738341805342.mp4",
+      "truth_leaf_id": "179",
+      "truth_leaf_name": "Bars & Restaurants",
+      "truth_path": [
+        "150",
+        "179"
+      ],
+      "pred_path": [
+        "150",
+        "179"
+      ],
+      "pred_leaf_id": "179",
+      "pred_leaf_name": "Bars & Restaurants",
+      "final_confidence": 0.9993017911911011,
+      "leaf_correct": true
+    },
+    {
+      "video": "data/videos/tiktok_search_Bars___resturants_7631268366174457110.mp4",
+      "truth_leaf_id": "179",
+      "truth_leaf_name": "Bars & Restaurants",
+      "truth_path": [
+        "150",
+        "179"
+      ],
+      "pred_path": [
+        "150",
+        "179"
+      ],
+      "pred_leaf_id": "179",
+      "pred_leaf_name": "Bars & Restaurants",
+      "final_confidence": 0.9970593452453613,
+      "leaf_correct": true
+    },
+    {
+      "video": "data/videos/tiktok_search_Bars___resturants_7631307762588306719.mp4",
+      "truth_leaf_id": "179",
+      "truth_leaf_name": "Bars & Restaurants",
+      "truth_path": [
+        "150",
+        "179"
+      ],
+      "pred_path": [
+        "150",
+        "179"
+      ],
+      "pred_leaf_id": "179",
+      "pred_leaf_name": "Bars & Restaurants",
+      "final_confidence": 0.9963621497154236,
+      "leaf_correct": true
+    },
+    {
+      "video": "data/videos/tiktok_search_Bars___resturants_7632356286754983181.mp4",
+      "truth_leaf_id": "179",
+      "truth_leaf_name": "Bars & Restaurants",
+      "truth_path": [
+        "150",
+        "179"
+      ],
+      "pred_path": [
+        "150",
+        "179"
+      ],
+      "pred_leaf_id": "179",
+      "pred_leaf_name": "Bars & Restaurants",
+      "final_confidence": 0.9894474744796753,
+      "leaf_correct": true
+    },
+    {
+      "video": "data/videos/tiktok_search_Bars___resturants_7632422653864856862.mp4",
+      "truth_leaf_id": "179",
+      "truth_leaf_name": "Bars & Restaurants",
+      "truth_path": [
+        "150",
+        "179"
+      ],
+      "pred_path": [
+        "150",
+        "179"
+      ],
+      "pred_leaf_id": "179",
+      "pred_leaf_name": "Bars & Restaurants",
+      "final_confidence": 0.97995525598526,
+      "leaf_correct": true
+    },
+    {
+      "video": "data/videos/tiktok_search_Casinos___Gambling_7629481314676247838.mp4",
+      "truth_leaf_id": "181",
+      "truth_leaf_name": "Casinos & Gambling",
+      "truth_path": [
+        "150",
+        "181"
+      ],
+      "pred_path": [
+        "150",
+        "181"
+      ],
+      "pred_leaf_id": "181",
+      "pred_leaf_name": "Casinos & Gambling",
+      "final_confidence": 0.9182563424110413,
+      "leaf_correct": true
+    },
+    {
+      "video": "data/videos/tiktok_search_Casinos___Gambling_7631074062340574495.mp4",
+      "truth_leaf_id": "181",
+      "truth_leaf_name": "Casinos & Gambling",
+      "truth_path": [
+        "150",
+        "181"
+      ],
+      "pred_path": [
+        "150",
+        "181"
+      ],
+      "pred_leaf_id": "181",
+      "pred_leaf_name": "Casinos & Gambling",
+      "final_confidence": 0.9988804459571838,
+      "leaf_correct": true
+    },
+    {
+      "video": "data/videos/tiktok_search_Casinos___Gambling_7631302639631731982.mp4",
+      "truth_leaf_id": "181",
+      "truth_leaf_name": "Casinos & Gambling",
+      "truth_path": [
+        "150",
+        "181"
+      ],
+      "pred_path": [
+        "150",
+        "181"
+      ],
+      "pred_leaf_id": "181",
+      "pred_leaf_name": "Casinos & Gambling",
+      "final_confidence": 0.9859697818756104,
+      "leaf_correct": true
+    },
+    {
+      "video": "data/videos/tiktok_search_Casinos___Gambling_7632000463658929421.mp4",
+      "truth_leaf_id": "181",
+      "truth_leaf_name": "Casinos & Gambling",
+      "truth_path": [
+        "150",
+        "181"
+      ],
+      "pred_path": [
+        "150",
+        "181"
+      ],
+      "pred_leaf_id": "181",
+      "pred_leaf_name": "Casinos & Gambling",
+      "final_confidence": 0.9955556988716125,
+      "leaf_correct": true
+    },
+    {
+      "video": "data/videos/tiktok_search_Casinos___Gambling_7632086042249661710.mp4",
+      "truth_leaf_id": "181",
+      "truth_leaf_name": "Casinos & Gambling",
+      "truth_path": [
+        "150",
+        "181"
+      ],
+      "pred_path": [
+        "150",
+        "181"
+      ],
+      "pred_leaf_id": "181",
+      "pred_leaf_name": "Casinos & Gambling",
+      "final_confidence": 0.9990060925483704,
+      "leaf_correct": true
+    },
+    {
+      "video": "data/videos/tiktok_search_Casinos___Gambling_7632410397789801759.mp4",
+      "truth_leaf_id": "181",
+      "truth_leaf_name": "Casinos & Gambling",
+      "truth_path": [
+        "150",
+        "181"
+      ],
+      "pred_path": [
+        "150",
+        "181"
+      ],
+      "pred_leaf_id": "181",
+      "pred_leaf_name": "Casinos & Gambling",
+      "final_confidence": 0.9980998635292053,
+      "leaf_correct": true
+    },
+    {
+      "video": "data/videos/tiktok_search_Casinos___Gambling_7632410977648037134.mp4",
+      "truth_leaf_id": "181",
+      "truth_leaf_name": "Casinos & Gambling",
+      "truth_path": [
+        "150",
+        "181"
+      ],
+      "pred_path": [
+        "150",
+        "181"
+      ],
+      "pred_leaf_id": "181",
+      "pred_leaf_name": "Casinos & Gambling",
+      "final_confidence": 0.9954795837402344,
+      "leaf_correct": true
+    },
+    {
+      "video": "data/videos/tiktok_search_Casinos___Gambling_7632440952149282062.mp4",
+      "truth_leaf_id": "181",
+      "truth_leaf_name": "Casinos & Gambling",
+      "truth_path": [
+        "150",
+        "181"
+      ],
+      "pred_path": [
+        "150",
+        "181"
+      ],
+      "pred_leaf_id": "181",
+      "pred_leaf_name": "Casinos & Gambling",
+      "final_confidence": 0.44555696845054626,
+      "leaf_correct": true
+    },
+    {
+      "video": "data/videos/tiktok_search_Casinos___Gambling_7632448975131544834.mp4",
+      "truth_leaf_id": "181",
+      "truth_leaf_name": "Casinos & Gambling",
+      "truth_path": [
+        "150",
+        "181"
+      ],
+      "pred_path": [
+        "150",
+        "181"
+      ],
+      "pred_leaf_id": "181",
+      "pred_leaf_name": "Casinos & Gambling",
+      "final_confidence": 0.9973279237747192,
+      "leaf_correct": true
+    },
+    {
+      "video": "data/videos/tiktok_search_Casinos___Gambling_7632482415570668814.mp4",
+      "truth_leaf_id": "181",
+      "truth_leaf_name": "Casinos & Gambling",
+      "truth_path": [
+        "150",
+        "181"
+      ],
+      "pred_path": [
+        "150",
+        "181"
+      ],
+      "pred_leaf_id": "181",
+      "pred_leaf_name": "Casinos & Gambling",
+      "final_confidence": 0.9984992742538452,
+      "leaf_correct": true
+    },
+    {
+      "video": "data/videos/tiktok_search_Historic_Site_and_Landmark_Tours_7606327792220802317.mp4",
+      "truth_leaf_id": "153",
+      "truth_leaf_name": "Historic Site and Landmark Tours",
+      "truth_path": [
+        "150",
+        "153"
+      ],
+      "pred_path": [
+        "150",
+        "153"
+      ],
+      "pred_leaf_id": "153",
+      "pred_leaf_name": "Historic Site and Landmark Tours",
+      "final_confidence": 0.9953892230987549,
+      "leaf_correct": true
+    },
+    {
+      "video": "data/videos/tiktok_search_Historic_Site_and_Landmark_Tours_7611564383759535390.mp4",
+      "truth_leaf_id": "153",
+      "truth_leaf_name": "Historic Site and Landmark Tours",
+      "truth_path": [
+        "150",
+        "153"
+      ],
+      "pred_path": [
+        "150",
+        "153"
+      ],
+      "pred_leaf_id": "153",
+      "pred_leaf_name": "Historic Site and Landmark Tours",
+      "final_confidence": 0.9898068308830261,
+      "leaf_correct": true
+    },
+    {
+      "video": "data/videos/tiktok_search_Historic_Site_and_Landmark_Tours_7616057769963080973.mp4",
+      "truth_leaf_id": "153",
+      "truth_leaf_name": "Historic Site and Landmark Tours",
+      "truth_path": [
+        "150",
+        "153"
+      ],
+      "pred_path": [
+        "150",
+        "153"
+      ],
+      "pred_leaf_id": "153",
+      "pred_leaf_name": "Historic Site and Landmark Tours",
+      "final_confidence": 0.9963158965110779,
+      "leaf_correct": true
+    },
+    {
+      "video": "data/videos/tiktok_search_Historic_Site_and_Landmark_Tours_7620186811641367821.mp4",
+      "truth_leaf_id": "153",
+      "truth_leaf_name": "Historic Site and Landmark Tours",
+      "truth_path": [
+        "150",
+        "153"
+      ],
+      "pred_path": [
+        "150",
+        "153"
+      ],
+      "pred_leaf_id": "153",
+      "pred_leaf_name": "Historic Site and Landmark Tours",
+      "final_confidence": 0.9906028509140015,
+      "leaf_correct": true
+    },
+    {
+      "video": "data/videos/tiktok_search_Historic_Site_and_Landmark_Tours_7620225415398968598.mp4",
+      "truth_leaf_id": "153",
+      "truth_leaf_name": "Historic Site and Landmark Tours",
+      "truth_path": [
+        "150",
+        "153"
+      ],
+      "pred_path": [
+        "150",
+        "153"
+      ],
+      "pred_leaf_id": "153",
+      "pred_leaf_name": "Historic Site and Landmark Tours",
+      "final_confidence": 0.9884998202323914,
+      "leaf_correct": true
+    },
+    {
+      "video": "data/videos/tiktok_search_Historic_Site_and_Landmark_Tours_7621918901177158943.mp4",
+      "truth_leaf_id": "153",
+      "truth_leaf_name": "Historic Site and Landmark Tours",
+      "truth_path": [
+        "150",
+        "153"
+      ],
+      "pred_path": [
+        "150",
+        "153"
+      ],
+      "pred_leaf_id": "153",
+      "pred_leaf_name": "Historic Site and Landmark Tours",
+      "final_confidence": 0.9959761500358582,
+      "leaf_correct": true
+    },
+    {
+      "video": "data/videos/tiktok_search_Historic_Site_and_Landmark_Tours_7622299780869328141.mp4",
+      "truth_leaf_id": "153",
+      "truth_leaf_name": "Historic Site and Landmark Tours",
+      "truth_path": [
+        "150",
+        "153"
+      ],
+      "pred_path": [
+        "150",
+        "153"
+      ],
+      "pred_leaf_id": "153",
+      "pred_leaf_name": "Historic Site and Landmark Tours",
+      "final_confidence": 0.998450756072998,
+      "leaf_correct": true
+    },
+    {
+      "video": "data/videos/tiktok_search_Historic_Site_and_Landmark_Tours_7623955772614970638.mp4",
+      "truth_leaf_id": "153",
+      "truth_leaf_name": "Historic Site and Landmark Tours",
+      "truth_path": [
+        "150",
+        "153"
+      ],
+      "pred_path": [
+        "150",
+        "153"
+      ],
+      "pred_leaf_id": "153",
+      "pred_leaf_name": "Historic Site and Landmark Tours",
+      "final_confidence": 0.9100868105888367,
+      "leaf_correct": true
+    },
+    {
+      "video": "data/videos/tiktok_search_Historic_Site_and_Landmark_Tours_7626145008994749727.mp4",
+      "truth_leaf_id": "153",
+      "truth_leaf_name": "Historic Site and Landmark Tours",
+      "truth_path": [
+        "150",
+        "153"
+      ],
+      "pred_path": [
+        "150",
+        "153"
+      ],
+      "pred_leaf_id": "153",
+      "pred_leaf_name": "Historic Site and Landmark Tours",
+      "final_confidence": 0.9758735299110413,
+      "leaf_correct": true
+    },
+    {
+      "video": "data/videos/tiktok_search_Historic_Site_and_Landmark_Tours_7632399557808147742.mp4",
+      "truth_leaf_id": "153",
+      "truth_leaf_name": "Historic Site and Landmark Tours",
+      "truth_path": [
+        "150",
+        "153"
+      ],
+      "pred_path": [
+        "150",
+        "153"
+      ],
+      "pred_leaf_id": "153",
+      "pred_leaf_name": "Historic Site and Landmark Tours",
+      "final_confidence": 0.998140811920166,
+      "leaf_correct": true
+    }
+  ]
+}

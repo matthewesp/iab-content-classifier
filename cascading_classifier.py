@@ -120,6 +120,7 @@ class CascadingClassifier(nn.Module):
         max_active_routers: int | None = None,
         hidden_dim: int = 256,
         dropout: float = 0.1,
+        force_leaf: bool = False,
     ) -> None:
         super().__init__()
         if len(root_ids) != len(root_names):
@@ -135,6 +136,12 @@ class CascadingClassifier(nn.Module):
         self.root_names = list(root_names)
         self.confidence_threshold = confidence_threshold
         self.max_active_routers = max_active_routers
+        # When True, escalate while a router exists for the predicted node
+        # regardless of confidence. The cascade still terminates at "deepest
+        # available router" — true taxonomy leaves only if every parent has a
+        # trained router. Useful when the root is overconfident due to a
+        # single-class training distribution.
+        self.force_leaf = force_leaf
 
         self.root_router = Router(in_dim, len(root_ids), hidden_dim, dropout).to(self.device)
 
@@ -244,7 +251,9 @@ class CascadingClassifier(nn.Module):
             pred_id = self.root_ids[idx_cpu[i]]
             pred_name = self.root_names[idx_cpu[i]]
             c = conf_cpu[i]
-            escalate = c < self.confidence_threshold and self.has_router(pred_id)
+            escalate = self.has_router(pred_id) and (
+                self.force_leaf or c < self.confidence_threshold
+            )
             paths[i].append(PathStep(
                 parent_id=None,
                 predicted_id=pred_id,
@@ -274,7 +283,9 @@ class CascadingClassifier(nn.Module):
                     cid = kids_id[s_idx[j]]
                     cname = kids_name[s_idx[j]]
                     c = s_conf[j]
-                    escalate = c < self.confidence_threshold and self.has_router(cid)
+                    escalate = self.has_router(cid) and (
+                        self.force_leaf or c < self.confidence_threshold
+                    )
                     paths[i].append(PathStep(
                         parent_id=parent_id,
                         predicted_id=cid,

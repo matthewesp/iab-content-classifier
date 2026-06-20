@@ -101,6 +101,21 @@ def main() -> None:
     feature_dim: int = cache["feature_dim"]
     print(f"loaded {features.shape[0]} samples × {feature_dim}-dim from {args.features}")
 
+    # Cross-check the cache dim against the live backbone. The backbone's
+    # embed_dims can change (e.g. swapping the visual model) and a stale cache
+    # would silently train routers with wrong-shape inputs.
+    from pipeline import VideoClassifier   # local import to avoid model load when not needed
+    probe = VideoClassifier(
+        taxonomy_path=args.taxonomy, warn_untrained=False, router_weights_dir=None,
+    )
+    if probe.in_dim != feature_dim:
+        sys.exit(
+            f"feature cache dim ({feature_dim}) does not match current backbone "
+            f"in_dim ({probe.in_dim}). The visual / text / audio model was changed "
+            f"after the cache was built. Re-run scripts/build_features.py to rebuild."
+        )
+    del probe
+
     tax = load_taxonomy(args.taxonomy)
     paths = [tax.path_to(lid) for lid in leaf_ids]   # root → leaf, inclusive
 

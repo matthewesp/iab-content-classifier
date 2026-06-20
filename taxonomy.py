@@ -244,6 +244,7 @@ def build_classifier(
     hidden_dim: int = 256,
     router_weights_dir: Path | None = None,
     dropout: float = 0.1,
+    force_leaf: bool = False,
 ) -> CascadingClassifier:
     """Wire the full taxonomy into an n-tier CascadingClassifier.
 
@@ -262,6 +263,7 @@ def build_classifier(
         max_active_routers=max_active_routers,
         hidden_dim=hidden_dim,
         dropout=dropout,
+        force_leaf=force_leaf,
     )
     for parent_id, kids in tax.children.items():
         weights_path = (

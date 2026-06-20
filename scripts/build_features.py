@@ -45,6 +45,10 @@ def main() -> None:
     p.add_argument("--out", type=Path, default=Path("data/features.pt"))
     p.add_argument("--taxonomy", type=Path, default=Path("content_taxonomy_3.1.tsv"))
     p.add_argument("--sample-fps", type=float, default=1.0)
+    p.add_argument(
+        "--cache-root", type=Path, default=Path("data/cache"),
+        help="per-stage cache directory; pass empty string to disable cache",
+    )
     args = p.parse_args()
 
     if not args.labels.exists():
@@ -56,11 +60,13 @@ def main() -> None:
 
     # Don't load weights at this stage — we only need the backbone, and the
     # warning would be misleading during pre-training feature extraction.
+    cache_root = args.cache_root if str(args.cache_root) else None
     clf = VideoClassifier(
         taxonomy_path=args.taxonomy,
         sample_fps=args.sample_fps,
         warn_untrained=False,
         router_weights_dir=None,
+        cache_root=cache_root,
     )
 
     # Validate everything up-front so we fail fast before doing minutes of work

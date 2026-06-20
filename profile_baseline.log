@@ -1,0 +1,56 @@
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+profiling 4 video(s) with sample_fps=1.0
+Loading weights:   0%|          | 0/100 [00:00<?, ?it/s]Loading weights: 100%|██████████| 100/100 [00:00<00:00, 6164.56it/s]
+[transformers] [1mDistilBertModel LOAD REPORT[0m from: distilbert-base-uncased
+Key                     | Status     |  | 
+------------------------+------------+--+-
+vocab_layer_norm.bias   | UNEXPECTED |  | 
+vocab_transform.bias    | UNEXPECTED |  | 
+vocab_layer_norm.weight | UNEXPECTED |  | 
+vocab_transform.weight  | UNEXPECTED |  | 
+vocab_projector.bias    | UNEXPECTED |  | 
+
+Notes:
+- UNEXPECTED:	can be ignored when loading from different task/architecture; not ok if you expect identical arch.
+Loading weights:   0%|          | 0/167 [00:00<?, ?it/s]Loading weights: 100%|██████████| 167/167 [00:00<00:00, 6409.73it/s]
+Loading weights:   0%|          | 0/198 [00:00<?, ?it/s]Loading weights: 100%|██████████| 198/198 [00:00<00:00, 56552.41it/s]
+[transformers] [1mViTModel LOAD REPORT[0m from: facebook/dino-vits16
+Key                 | Status  | 
+--------------------+---------+-
+pooler.dense.weight | MISSING | 
+pooler.dense.bias   | MISSING | 
+
+Notes:
+- MISSING:	those params were newly initialized because missing from the checkpoint. Consider training on your downstream task.
+Loading weights:   0%|          | 0/167 [00:00<?, ?it/s]Loading weights: 100%|██████████| 167/167 [00:00<00:00, 15059.85it/s]
+/Users/matthewesparza/Desktop/iab-content-classifier/.venv/lib/python3.12/site-packages/torch/utils/data/dataloader.py:775: UserWarning: 'pin_memory' argument is set as true but not supported on MPS now, device pinned memory won't be used.
+  super().__init__(loader)
+[transformers] Using custom `forced_decoder_ids` from the (generation) config. This is deprecated in favor of the `task` and `language` flags/config options.
+[transformers] Transcription using a multilingual Whisper will default to language detection followed by transcription instead of translation to English. This might be a breaking change for your use case. If you want to instead always translate your audio to English, make sure to pass `language='en'`. See https://github.com/huggingface/transformers/pull/28687 for more details.
+[transformers] A custom logits processor of type <class 'transformers.generation.logits_process.SuppressTokensLogitsProcessor'> has been passed to `.generate()`, but it was also created in `.generate()`, given its parameterization. The custom <class 'transformers.generation.logits_process.SuppressTokensLogitsProcessor'> will take precedence. Please check the docstring of <class 'transformers.generation.logits_process.SuppressTokensLogitsProcessor'> to see related `.generate()` flags.
+[transformers] A custom logits processor of type <class 'transformers.generation.logits_process.SuppressTokensAtBeginLogitsProcessor'> has been passed to `.generate()`, but it was also created in `.generate()`, given its parameterization. The custom <class 'transformers.generation.logits_process.SuppressTokensAtBeginLogitsProcessor'> will take precedence. Please check the docstring of <class 'transformers.generation.logits_process.SuppressTokensAtBeginLogitsProcessor'> to see related `.generate()` flags.
+/Users/matthewesparza/Desktop/iab-content-classifier/.venv/lib/python3.12/site-packages/torch/utils/data/dataloader.py:775: UserWarning: 'pin_memory' argument is set as true but not supported on MPS now, device pinned memory won't be used.
+  super().__init__(loader)
+/Users/matthewesparza/Desktop/iab-content-classifier/.venv/lib/python3.12/site-packages/torch/utils/data/dataloader.py:775: UserWarning: 'pin_memory' argument is set as true but not supported on MPS now, device pinned memory won't be used.
+  super().__init__(loader)
+/Users/matthewesparza/Desktop/iab-content-classifier/.venv/lib/python3.12/site-packages/torch/utils/data/dataloader.py:775: UserWarning: 'pin_memory' argument is set as true but not supported on MPS now, device pinned memory won't be used.
+  super().__init__(loader)
+device: mps
+[1/4] testvideo.mp4  wall=197.40s  frames=66  ocr_calls=66
+[2/4] testvideo_copy1.mp4  wall=162.09s  frames=66  ocr_calls=66
+[3/4] testvideo_copy2.mp4  wall=163.24s  frames=66  ocr_calls=66
+[4/4] testvideo_copy3.mp4  wall=152.22s  frames=66  ocr_calls=66
+
+stage                     total_s     mean_s   median_s   n
+-----------------------------------------------------------------
+ocr_s                      570.54   142.636   136.228    4
+transcribe_s                61.61    15.402    15.582    4
+iter_frames_s               20.60     5.149     5.216    4
+encode_video_s              13.75     3.438     3.423    4
+encode_text_s                1.32     0.331     0.325    4
+extract_audio_s              0.92     0.230     0.228    4
+encode_audio_s               0.52     0.130     0.127    4
+wall_s (sum)               674.95   168.737   162.662    4
+
+total elapsed: 675.0s
+baseline → data/profile_baseline.json

@@ -1,0 +1,539 @@
+{
+  "feature_dim": 1536,
+  "n_samples": 40,
+  "epochs": 30,
+  "lr": 0.0003,
+  "batch_size": 64,
+  "routers": {
+    "__root__": {
+      "status": "trained",
+      "ckpt": "__root__.pt",
+      "n_train": 32,
+      "n_val": 8,
+      "num_classes": 37,
+      "epoch": 30,
+      "train_loss": 9.514426346868277e-05,
+      "train_acc": 1.0,
+      "val_loss": 1.9907683963538148e-05,
+      "val_acc": 1.0
+    },
+    "150": {
+      "status": "trained",
+      "ckpt": "150.pt",
+      "n_train": 32,
+      "n_val": 8,
+      "num_classes": 11,
+      "epoch": 30,
+      "train_loss": 0.006781014613807201,
+      "train_acc": 1.0,
+      "val_loss": 0.3472238779067993,
+      "val_acc": 0.875
+    },
+    "1": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Automotive",
+      "num_classes": 16
+    },
+    "2": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Auto Body Styles",
+      "num_classes": 13
+    },
+    "37": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Auto Technology",
+      "num_classes": 3
+    },
+    "16": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Auto Type",
+      "num_classes": 8
+    },
+    "42": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Books and Literature",
+      "num_classes": 4
+    },
+    "52": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Business and Finance",
+      "num_classes": 3
+    },
+    "53": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Business",
+      "num_classes": 17
+    },
+    "63": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Business Banking & Finance",
+      "num_classes": 8
+    },
+    "74": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Consumer Issues",
+      "num_classes": 1
+    },
+    "80": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Economy",
+      "num_classes": 9
+    },
+    "90": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Industries",
+      "num_classes": 32
+    },
+    "123": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Careers",
+      "num_classes": 6
+    },
+    "127": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Job Search",
+      "num_classes": 2
+    },
+    "132": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Education",
+      "num_classes": 12
+    },
+    "137": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "College Education",
+      "num_classes": 3
+    },
+    "139": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Postgraduate Education",
+      "num_classes": 1
+    },
+    "143": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Educational Assessment",
+      "num_classes": 1
+    },
+    "JLBCU7": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Entertainment",
+      "num_classes": 3
+    },
+    "8VZQHL": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Events",
+      "num_classes": 3
+    },
+    "186": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Family and Relationships",
+      "num_classes": 7
+    },
+    "192": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Parenting",
+      "num_classes": 7
+    },
+    "201": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Fine Art",
+      "num_classes": 8
+    },
+    "210": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Food & Drink",
+      "num_classes": 12
+    },
+    "SPSHQ5": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Genres",
+      "num_classes": 30
+    },
+    "223": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Healthy Living",
+      "num_classes": 8
+    },
+    "225": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Fitness and Exercise",
+      "num_classes": 2
+    },
+    "232": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Wellness",
+      "num_classes": 3
+    },
+    "233": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Alternative Medicine",
+      "num_classes": 2
+    },
+    "239": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Hobbies & Interests",
+      "num_classes": 16
+    },
+    "248": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Arts and Crafts",
+      "num_classes": 9
+    },
+    "261": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Collecting",
+      "num_classes": 2
+    },
+    "264": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Content Production",
+      "num_classes": 4
+    },
+    "269": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Games and Puzzles",
+      "num_classes": 3
+    },
+    "1KXCLD": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Holidays",
+      "num_classes": 1
+    },
+    "274": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Home & Garden",
+      "num_classes": 11
+    },
+    "286": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Medical Health",
+      "num_classes": 6
+    },
+    "287": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Diseases and Conditions",
+      "num_classes": 23
+    },
+    "290": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Endocrine and Metabolic Diseases",
+      "num_classes": 3
+    },
+    "298": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Injuries",
+      "num_classes": 1
+    },
+    "302": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Reproductive Health",
+      "num_classes": 3
+    },
+    "307": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Sexual Health",
+      "num_classes": 1
+    },
+    "338": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Music",
+      "num_classes": 26
+    },
+    "339": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Adult Contemporary Music",
+      "num_classes": 2
+    },
+    "363": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Rock Music",
+      "num_classes": 5
+    },
+    "163": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Personal Celebrations & Life Events",
+      "num_classes": 10
+    },
+    "391": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Personal Finance",
+      "num_classes": 10
+    },
+    "393": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Financial Assistance",
+      "num_classes": 2
+    },
+    "417": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Home Utilities",
+      "num_classes": 4
+    },
+    "398": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Insurance",
+      "num_classes": 6
+    },
+    "405": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Personal Debt",
+      "num_classes": 4
+    },
+    "410": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Personal Investing",
+      "num_classes": 4
+    },
+    "422": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Pets",
+      "num_classes": 9
+    },
+    "386": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Politics",
+      "num_classes": 3
+    },
+    "432": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Pop Culture",
+      "num_classes": 8
+    },
+    "602": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Computer Software and Applications",
+      "num_classes": 15
+    },
+    "441": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Real Estate",
+      "num_classes": 11
+    },
+    "453": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Religion & Spirituality",
+      "num_classes": 10
+    },
+    "464": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Science",
+      "num_classes": 9
+    },
+    "v9i3On": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Sensitive Topics",
+      "num_classes": 11
+    },
+    "473": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Shopping",
+      "num_classes": 10
+    },
+    "483": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Sports",
+      "num_classes": 52
+    },
+    "518": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Auto Racing",
+      "num_classes": 1
+    },
+    "487": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "College Sports",
+      "num_classes": 3
+    },
+    "498": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Extreme Sports",
+      "num_classes": 8
+    },
+    "521": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Olympic Sports",
+      "num_classes": 2
+    },
+    "527": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Rugby",
+      "num_classes": 2
+    },
+    "552": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Style & Fashion",
+      "num_classes": 10
+    },
+    "553": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Beauty",
+      "num_classes": 6
+    },
+    "579": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Men's Fashion",
+      "num_classes": 3
+    },
+    "580": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Men's Accessories",
+      "num_classes": 1
+    },
+    "582": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Men's Clothing",
+      "num_classes": 6
+    },
+    "590": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Personal Care",
+      "num_classes": 4
+    },
+    "560": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Women's Fashion",
+      "num_classes": 3
+    },
+    "561": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Women's Accessories",
+      "num_classes": 4
+    },
+    "566": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Women's Clothing",
+      "num_classes": 6
+    },
+    "596": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Technology & Computing",
+      "num_classes": 6
+    },
+    "599": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Computing",
+      "num_classes": 9
+    },
+    "619": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Internet",
+      "num_classes": 10
+    },
+    "632": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Consumer Electronics",
+      "num_classes": 5
+    },
+    "653": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Travel",
+      "num_classes": 4
+    },
+    "655": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Travel Locations",
+      "num_classes": 7
+    },
+    "664": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Travel Type",
+      "num_classes": 15
+    },
+    "680": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Video Gaming",
+      "num_classes": 5
+    },
+    "685": {
+      "status": "no_samples",
+      "n": 0,
+      "name": "Video Game Genres",
+      "num_classes": 18
+    }
+  },
+  "elapsed_s": 2.2594199180603027,
+  "taxonomy_path": "content_taxonomy_3.1.tsv"
+}
