@@ -13,3 +13,21 @@ dependencies = [
     "transformers>=5.6.2",
     "mlx-whisper>=0.4.0; sys_platform == 'darwin' and platform_machine == 'arm64'",
 ]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+# Flat layout: the project is a set of top-level modules, not a package dir.
+# Declaring py-modules explicitly disables setuptools auto-discovery, which
+# otherwise errors on sibling dirs (data/, colab/, iab/, models/).
+[tool.setuptools]
+py-modules = [
+    "app",
+    "cache",
+    "cascading_classifier",
+    "multimodal_backbone",
+    "pipeline",
+    "taxonomy",
+    "video_processor",
+]
