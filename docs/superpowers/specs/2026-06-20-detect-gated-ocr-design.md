@@ -77,11 +77,30 @@ DistilBERT token budget). Net accuracy-neutral or better.
 New fields, all tunable and added to `ocr_params` so the per-video OCR cache
 auto-invalidates when behavior changes:
 
-- `detect_gate: bool = True` — default on (lossless).
-- `ocr_region_dedup_threshold: float` — mean grayscale absdiff on the region
-  tile, same 0–255 scale as the existing `ocr_dedup_threshold` (default `8.0`).
-  Start at `8.0` and calibrate against the equivalence/region tests; `0`
-  disables Feature 2.
+- detect-gate: always on (lossless), built into `ocr_frame()` and the scan
+  cascade.
+- `ocr_region_dedup_threshold: float = 0.0` — **default OFF** (see Calibration
+  Finding). When > 0, mean grayscale absdiff on the region tile (same 0–255
+  scale as `ocr_dedup_threshold`); enable (e.g. `8.0`) only for static-text /
+  static-background content.
+
+## Calibration Finding (as built)
+
+Measured the region-tile absdiff against whether the recognized *text* actually
+changed, on `data/test_vids/`. The pixel signature does **not** separate "same
+caption" from "different caption" on caption-over-video content: same-text
+frames diffed 21–28 (raw) / 40–63 (Otsu-binarized) while some different-text
+frames diffed as low as 14 / 48. Cause: TikTok captions overlay moving video, so
+the box crop is dominated by background motion, not glyphs. Any threshold
+aggressive enough to skip true duplicates also merges distinct captions — and the
+distinct captions (e.g. different national-park names) are exactly the
+category-relevant text.
+
+**Decision:** Feature 1 (detect-gate) ships on by default — it is lossless and
+saves recognition on textless frames (e.g. a no-caption clip skipped 100% of
+recognition in testing). Feature 2 (region-dedup) ships as an opt-in knob
+defaulted OFF, suitable only for static-text content; its gate logic is covered
+by a deterministic test rather than threshold-tuned on noisy real video.
 
 Detector defaults (`text_threshold`, `low_text`, `min_size`, etc.) use EasyOCR's
 defaults unless a need to expose them arises.
@@ -104,12 +123,16 @@ detection count does not increase versus today.
 
 ## Testing (TDD)
 
-1. **Equivalence (proves detect-gate lossless):** with `detect_gate=True` and
-   `ocr_region_dedup_threshold=0`, the cascade produces **identical** `OCRHit`s
-   to the current `readtext` path on the 3 `data/test_vids/*.mp4`.
-2. **Region-dedup:** with the threshold enabled, `recognize_calls` drops and the
-   captured text *set* (unique strings) is unchanged on a static-caption clip.
-3. **Profile:** `ocr_s` decreases versus the `postmlx` baseline on the test set.
+Implemented in `tests/test_ocr_cascade.py` (standalone-runnable; no pytest dep):
+
+1. **Equivalence (proves detect-gate lossless):** `detect_text()` + `recognize_text()`
+   produce identical text+confidence to `reader.readtext()` on a real frame.
+2. **Detect-gate:** a textless (blank) frame yields no hits and does **not** call
+   the recognizer.
+3. **Region-dedup gate logic:** deterministic test with controlled frames — a
+   frame whose text region is unchanged (but background moved) is skipped, while
+   a frame with a genuinely different region is still recognized; no text is
+   invented.
 
 ## Out of Scope
 

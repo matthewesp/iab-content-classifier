@@ -102,6 +102,13 @@ class VideoClassifier:
                                                   # assumes; override per source res.
         caption_min_chars: int = 3,
         ocr_dedup_threshold: float = 8.0,
+        # Region-dedup (skip recognition when the detected text region looks
+        # unchanged) is OFF by default: on caption-over-video content (e.g.
+        # TikTok) the box crop is dominated by moving background, so the pixel
+        # signature can't reliably tell "same caption" from "different caption"
+        # and would merge distinct captions. Enable (e.g. 8.0) only for content
+        # with static text on static backgrounds. See the 2026-06-20 design doc.
+        ocr_region_dedup_threshold: float = 0.0,
         router_weights_dir: Path | None = Path("models"),
         cache_root: Path | None = Path("data/cache"),
         force_leaf: bool = False,
@@ -181,6 +188,7 @@ class VideoClassifier:
         # — fine for static-caption TikTok-style videos; raise for noisier
         # camera content.
         self.ocr_dedup_threshold = ocr_dedup_threshold
+        self.ocr_region_dedup_threshold = ocr_region_dedup_threshold
 
     def extract_features(
         self,
@@ -215,6 +223,7 @@ class VideoClassifier:
         ocr_params = {
             "sample_fps": self.vp.sample_fps,
             "ocr_dedup_threshold": self.ocr_dedup_threshold,
+            "ocr_region_dedup_threshold": self.ocr_region_dedup_threshold,
             "ocr_min_confidence": self.vp.ocr_min_confidence,
             "caption_only": self.caption_only,
             "caption_min_y": self.caption_min_y,
@@ -369,6 +378,7 @@ class VideoClassifier:
         ocr_params = {
             "sample_fps": self.vp.sample_fps,
             "ocr_dedup_threshold": self.ocr_dedup_threshold,
+            "ocr_region_dedup_threshold": self.ocr_region_dedup_threshold,
             "ocr_min_confidence": self.vp.ocr_min_confidence,
             "caption_only": self.caption_only,
             "caption_min_y": self.caption_min_y,
@@ -581,7 +591,11 @@ class VideoClassifier:
         dedup_total = 0.0
         ocr_calls = 0
         dedup_skipped = 0
+        detect_calls = 0          # frames we ran detect() on
+        recognize_calls = 0       # frames we ran the costly recognize() on
+        region_skipped = 0        # frames skipped because their text region was unchanged
         last_ocr_thumb: np.ndarray | None = None
+        last_region_tile: np.ndarray | None = None
         gen = self.vp.iter_frames(video_path)
         while True:
             t_iter = time.perf_counter() if timings is not None else 0.0
@@ -616,13 +630,46 @@ class VideoClassifier:
                     dedup_skipped += 1
                 continue
 
+            # Passed the cheap gate → this is now the reference frame for the
+            # next cheap comparison, whether or not we end up recognizing it.
+            last_ocr_thumb = thumb
+
             t_ocr = time.perf_counter() if timings is not None else 0.0
-            results = self.vp.ocr_frame(frame)
+
+            # Detect gate (Feature 1, lossless): find text boxes; if none, the
+            # recognizer would return nothing anyway, so skip it.
+            horizontal_list, free_list = self.vp.detect_text(frame)
+            detect_calls += 1
+            if not horizontal_list and not free_list:
+                if timings is not None:
+                    self._mps_sync()
+                    ocr_total += time.perf_counter() - t_ocr
+                continue
+
+            # Region gate (Feature 2): if the detected text region looks the same
+            # as the last frame we recognized, the caption hasn't changed — skip
+            # recognition and emit nothing (the text was captured the first time).
+            if self.ocr_region_dedup_threshold > 0:
+                tile = self._region_tile(frame, horizontal_list, free_list)
+                if (tile is not None and last_region_tile is not None
+                        and tile.shape == last_region_tile.shape
+                        and float(cv2.absdiff(tile, last_region_tile).mean())
+                        < self.ocr_region_dedup_threshold):
+                    region_skipped += 1
+                    if timings is not None:
+                        self._mps_sync()
+                        ocr_total += time.perf_counter() - t_ocr
+                    continue
+            else:
+                tile = None
+
+            results = self.vp.recognize_text(frame, horizontal_list, free_list)
+            recognize_calls += 1
             if timings is not None:
                 self._mps_sync()
                 ocr_total += time.perf_counter() - t_ocr
                 ocr_calls += 1
-            last_ocr_thumb = thumb
+            last_region_tile = tile
             for bbox, text, conf in results:
                 if conf < self.vp.ocr_min_confidence:
                     continue
@@ -643,7 +690,38 @@ class VideoClassifier:
             timings["dedup_s"] = dedup_total
             timings["ocr_n_calls"] = float(ocr_calls)
             timings["dedup_skipped"] = float(dedup_skipped)
+            timings["detect_calls"] = float(detect_calls)
+            timings["recognize_calls"] = float(recognize_calls)
+            timings["region_skipped"] = float(region_skipped)
         return np.stack(frames), ocr_hits
+
+    @staticmethod
+    def _region_tile(
+        frame_bgr: np.ndarray, horizontal_list: list, free_list: list,
+    ) -> np.ndarray | None:
+        """Downsampled grayscale tile of the union of detected text boxes — the
+        signature the region gate compares across frames. Normalizing every crop
+        to the same 64x32 tile makes the comparison size/position-invariant: same
+        caption pixels ⇒ same tile, even if the background changed. Returns None
+        if the union region is degenerate."""
+        h, w = frame_bgr.shape[:2]
+        xs: list[float] = []
+        ys: list[float] = []
+        for b in horizontal_list:                 # [x_min, x_max, y_min, y_max]
+            xs += [b[0], b[1]]
+            ys += [b[2], b[3]]
+        for poly in free_list:                    # quad of [x, y] points
+            for pt in poly:
+                xs.append(pt[0])
+                ys.append(pt[1])
+        if not xs or not ys:
+            return None
+        x0, x1 = max(0, int(min(xs))), min(w, int(max(xs)))
+        y0, y1 = max(0, int(min(ys))), min(h, int(max(ys)))
+        if x1 - x0 < 2 or y1 - y0 < 2:
+            return None
+        crop = cv2.cvtColor(frame_bgr[y0:y1, x0:x1], cv2.COLOR_BGR2GRAY)
+        return cv2.resize(crop, (64, 32), interpolation=cv2.INTER_AREA)
 
     def _transcribe(self, wav_path: Path) -> str:
         if self.asr_engine == "mlx":

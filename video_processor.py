@@ -121,13 +121,32 @@ class VideoProcessor:
         finally:
             cap.release()
 
-    def ocr_frame(self, frame_bgr: np.ndarray) -> list[tuple[list, str, float]]:
-        # Hand the BGR uint8 ndarray straight to EasyOCR. On Apple Silicon's
-        # unified memory, the only unavoidable copy is numpy→MPS heap, done once
-        # inside the reader. Pre-wrapping in a torch tensor or converting to RGB
-        # here would add a redundant pass over the pixels.
+    def detect_text(self, frame_bgr: np.ndarray) -> tuple[list, list]:
+        """Detection only: find text boxes without reading them. Returns the
+        per-image (horizontal_list, free_list) — the same boxes readtext() finds
+        internally. Empty boxes ⇒ no text, so the caller can skip the expensive
+        recognition step (lossless: readtext() would find nothing either)."""
         with torch.inference_mode():
-            return self.reader.readtext(frame_bgr)
+            horizontal_list, free_list = self.reader.detect(frame_bgr)
+        # detect() returns depth-3 (a list per image); we hand it one frame.
+        return horizontal_list[0], free_list[0]
+
+    def recognize_text(
+        self, frame_bgr: np.ndarray, horizontal_list: list, free_list: list,
+    ) -> list[tuple[list, str, float]]:
+        """Recognition only: read the text inside already-detected boxes. Same
+        (bbox, text, conf) output as ocr_frame()/readtext()."""
+        with torch.inference_mode():
+            return self.reader.recognize(frame_bgr, horizontal_list, free_list)
+
+    def ocr_frame(self, frame_bgr: np.ndarray) -> list[tuple[list, str, float]]:
+        # Detect-then-recognize, equivalent to a single readtext() call. Split
+        # into two steps so the scan loop can gate recognition (the costly half)
+        # on whether any text was detected and whether it changed.
+        horizontal_list, free_list = self.detect_text(frame_bgr)
+        if not horizontal_list and not free_list:
+            return []
+        return self.recognize_text(frame_bgr, horizontal_list, free_list)
 
     def process(
         self,
