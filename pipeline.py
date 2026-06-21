@@ -44,6 +44,32 @@ class FeatureExtraction:
     stage_timings: dict[str, float] = field(default_factory=dict)
 
 
+@dataclass
+class PreBackbone:
+    """Producer-side output for the batched extraction path: everything needed
+    to run the GPU backbones, minus the backbones themselves. Picklable so it
+    can cross a process boundary from a producer worker to the GPU consumer.
+
+    If ``cached_feature`` is set, all three embeddings were already on disk and
+    no GPU work is needed. Otherwise ``frames``/``wave`` carry the raw inputs
+    and the ``*_params`` carry the cache keys the consumer writes back under.
+    """
+    text: str
+    frames_sampled: int
+    ocr_text: str
+    asr_text: str
+    frames: "object | None" = None          # (T,H,W,3) uint8 BGR ndarray
+    wave: "object | None" = None            # mono float32 ndarray @ 16k
+    cached_feature: torch.Tensor | None = None
+    text_emb: torch.Tensor | None = None
+    audio_emb: torch.Tensor | None = None
+    video_emb: torch.Tensor | None = None
+    text_emb_params: dict | None = None
+    audio_emb_params: dict | None = None
+    video_emb_params: dict | None = None
+    video_path: str | None = None
+
+
 class VideoClassifier:
     """End-to-end mp4 → IAB category prediction.
 
@@ -316,6 +342,155 @@ class VideoClassifier:
             text_input=text,
             stage_timings=timings or {},
         )
+
+    # ------------------------------------------------------------------
+    # Batched extraction path (producer/consumer)
+    #
+    # extract_features() does decode+OCR+ASR (CPU/OCR-bound, ~85% of time)
+    # and the GPU backbone encodes for ONE video. To keep a big GPU saturated
+    # we split it: many producer processes run extract_pre_backbone() (the
+    # heavy part), and a single consumer batches encode_backbone() across
+    # videos. See scripts/build_features.py --batch-size.
+    # ------------------------------------------------------------------
+    def extract_pre_backbone(self, video_path: Path, *, use_cache: bool = True) -> PreBackbone:
+        """Everything up to the GPU backbones: decode frames, OCR, ASR, audio
+        waveform, and the resolved text. Cache-aware for OCR/ASR. If all three
+        per-video embeddings are already cached, returns them directly (frames /
+        wave left None) so the consumer can skip re-encoding on resume."""
+        import numpy as np
+        import soundfile as sf
+
+        video_path = Path(video_path)
+        if not video_path.exists():
+            raise FileNotFoundError(video_path)
+
+        cache = StageCache(self.cache_root, video_path) if (use_cache and self.cache_root is not None) else None
+
+        ocr_params = {
+            "sample_fps": self.vp.sample_fps,
+            "ocr_dedup_threshold": self.ocr_dedup_threshold,
+            "ocr_min_confidence": self.vp.ocr_min_confidence,
+            "caption_only": self.caption_only,
+            "caption_min_y": self.caption_min_y,
+            "caption_max_y": self.caption_max_y,
+            "caption_min_width_frac": self.caption_min_width_frac,
+            "caption_min_height_frac": self.caption_min_height_frac,
+            "caption_min_chars": self.caption_min_chars,
+        }
+        asr_params = {"asr_model": self.asr_model_name, "asr_engine": self.asr_engine}
+        audio_emb_params = {"audio_model": self.backbone.audio_model_name}
+        video_emb_params = {
+            "video_model": self.backbone.video_model_name,
+            "sample_fps": self.vp.sample_fps,
+        }
+
+        ocr_cached = cache.get_ocr(ocr_params) if cache else None
+        asr_text = cache.get_asr(asr_params) if cache else None
+        frames_sampled, ocr_hits = ocr_cached if ocr_cached is not None else (0, [])
+
+        # Resolve OCR.
+        frames: "np.ndarray | None" = None
+        if ocr_cached is None:
+            frames, ocr_hits = self._scan_video(video_path)
+            frames_sampled = frames.shape[0]
+            if cache:
+                cache.set_ocr(ocr_params, frames_sampled, ocr_hits)
+
+        ocr_text = " ".join(h.text for h in ocr_hits).strip()
+
+        # Resolve ASR (needs the wav). Read the waveform once; reuse for audio emb.
+        wave: "np.ndarray | None" = None
+        with tempfile.TemporaryDirectory(prefix="iab_pre_") as tmp:
+            wav_path = Path(tmp) / "audio.wav"
+            audio_extracted = False
+            if asr_text is None:
+                self.vp.extract_audio(video_path, wav_path)
+                audio_extracted = True
+                asr_text = self._transcribe(wav_path)
+                if cache:
+                    cache.set_asr(asr_params, asr_text)
+
+            text = f"{asr_text} {ocr_text}".strip()
+            text_emb_params = {
+                "text_model": self.backbone.text_model_name,
+                "max_length": 256,
+                "text_input": text,
+            }
+            text_emb = cache.get_tensor("text_emb", text_emb_params) if cache else None
+            audio_emb = cache.get_tensor("audio_emb", audio_emb_params) if cache else None
+            video_emb = cache.get_tensor("video_emb", video_emb_params) if cache else None
+
+            if text_emb is not None and audio_emb is not None and video_emb is not None:
+                # Fully cached — no GPU work needed for this video.
+                fused = torch.cat(
+                    [text_emb.cpu(), audio_emb.cpu(), video_emb.cpu()], dim=-1
+                ).squeeze(0)
+                return PreBackbone(
+                    text=text, frames=None, wave=None, frames_sampled=frames_sampled,
+                    ocr_text=ocr_text, asr_text=asr_text, cached_feature=fused,
+                )
+
+            # Need to encode → make sure we have frames + waveform on hand.
+            if video_emb is None and frames is None:
+                frames = self._iter_frames_only(video_path)
+            if audio_emb is None:
+                if not audio_extracted:
+                    self.vp.extract_audio(video_path, wav_path)
+                w, sr = sf.read(str(wav_path), dtype="float32", always_2d=False)
+                if w.ndim == 2:
+                    w = w.mean(axis=1)
+                wave = w
+
+        return PreBackbone(
+            text=text, frames=frames, wave=wave, frames_sampled=frames_sampled,
+            ocr_text=ocr_text, asr_text=asr_text, cached_feature=None,
+            text_emb=text_emb, audio_emb=audio_emb, video_emb=video_emb,
+            text_emb_params=text_emb_params, audio_emb_params=audio_emb_params,
+            video_emb_params=video_emb_params, video_path=str(video_path),
+        )
+
+    def encode_backbone_batch(self, items: list[PreBackbone]) -> list[torch.Tensor]:
+        """Consumer half: batch the three encoders across `items`, fuse, and
+        return one (in_dim,) CPU feature per item (same order). Writes per-video
+        emb cache so a later resume hits warm cache. Items whose feature was
+        fully cached pass straight through."""
+        order_feats: list[torch.Tensor | None] = [None] * len(items)
+
+        # Indices that still need each modality computed.
+        need = [i for i, it in enumerate(items) if it.cached_feature is None]
+        for i, it in enumerate(items):
+            if it.cached_feature is not None:
+                order_feats[i] = it.cached_feature
+
+        if need:
+            # ---- text (batched) ----
+            texts = [items[i].text for i in need]
+            text_embs = self.backbone.encode_text(
+                [t if t else " " for t in texts], max_length=256
+            )  # (k, Dt)
+            # ---- audio (batched from arrays) ----
+            import numpy as np
+            waves = [items[i].wave for i in need]
+            audio_embs = self.backbone.encode_audio_arrays(waves)  # (k, Da)
+            # ---- video (batched, variable T) ----
+            frames_list = [items[i].frames for i in need]
+            video_embs = self.backbone.encode_video_batch(frames_list)  # (k, Dv)
+
+            for j, i in enumerate(need):
+                it = items[i]
+                t_e = text_embs[j:j + 1]
+                a_e = audio_embs[j:j + 1]
+                v_e = video_embs[j:j + 1]
+                fused = torch.cat([t_e, a_e, v_e], dim=-1).squeeze(0).detach().cpu()
+                order_feats[i] = fused
+                # Warm the per-video cache for cheap resumes.
+                if self.cache_root is not None and it.video_path:
+                    cache = StageCache(self.cache_root, Path(it.video_path))
+                    cache.set_tensor("text_emb", it.text_emb_params, t_e)
+                    cache.set_tensor("audio_emb", it.audio_emb_params, a_e)
+                    cache.set_tensor("video_emb", it.video_emb_params, v_e)
+
+        return [f for f in order_feats]  # type: ignore[return-value]
 
     def _iter_frames_only(
         self,

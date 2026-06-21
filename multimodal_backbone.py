@@ -279,6 +279,69 @@ class MultimodalBackbone(nn.Module):
             pooled = cls.view(B, T, -1).mean(dim=1)      # (B, D)
         return pooled.float()
 
+    @torch.inference_mode()
+    def encode_audio_arrays(self, waves: list[np.ndarray]) -> torch.Tensor:
+        """Batched audio encode from in-memory waveforms (mono float32 at the
+        feature extractor's sample rate). Equivalent to encode_audio() but skips
+        the file round-trip — used by the batched extraction path so producer
+        processes don't have to persist wavs. The feature extractor pads/truncates
+        every clip to the same mel shape, so batching is exact."""
+        features = self.audio_feature_extractor(
+            waves,
+            sampling_rate=self.audio_feature_extractor.sampling_rate,
+            return_tensors="pt",
+        ).input_features.to(self.device)
+        with self._amp_ctx():
+            out = self.audio_encoder(features)
+            pooled = out.last_hidden_state.mean(dim=1)
+        return pooled.float()
+
+    @torch.inference_mode()
+    def encode_video_batch(
+        self, frames_list: list[np.ndarray], frame_chunk: int = 512,
+    ) -> torch.Tensor:
+        """Batched video encode across N videos with *variable* frame counts.
+
+        Each item is (T_i, H, W, 3) uint8 BGR. All frames from all videos are run
+        through the backbone together (in chunks of ``frame_chunk`` to bound GPU
+        memory regardless of batch size), then mean-pooled back per video. This
+        is what lets a big GPU stay saturated: one forward over thousands of
+        frames instead of N forwards of ~66. Returns (N, D), same per-video
+        result as calling encode_video() on each item.
+        """
+        if not self.use_pretrained_video:
+            # Legacy transformer needs (B,T,...); just loop — rarely used.
+            return torch.stack(
+                [self._encode_video_legacy(x[None]).squeeze(0) for x in frames_list]
+            ).float()
+
+        seg_lens: list[int] = []
+        flat: list[np.ndarray] = []
+        for x in frames_list:
+            if x.dtype != np.uint8:
+                x = (np.clip(x, 0, 1) * 255).astype(np.uint8) if x.max() <= 1.0 else x.astype(np.uint8)
+            rgb = x[..., [2, 1, 0]]                       # BGR → RGB
+            flat.extend(list(rgb))                        # each (H, W, 3)
+            seg_lens.append(len(rgb))
+
+        inputs = self.video_image_processor(images=flat, return_tensors="pt")
+        pixel_values = inputs["pixel_values"]             # (sumT, 3, H, W) on CPU
+
+        cls_parts: list[torch.Tensor] = []
+        for i in range(0, pixel_values.shape[0], frame_chunk):
+            pv = pixel_values[i:i + frame_chunk].to(self.device, non_blocking=True)
+            with self._amp_ctx():
+                out = self.video_encoder(pixel_values=pv)
+                cls_parts.append(out.last_hidden_state[:, 0].float())
+        cls = torch.cat(cls_parts, dim=0)                 # (sumT, D)
+
+        pooled: list[torch.Tensor] = []
+        off = 0
+        for L in seg_lens:
+            pooled.append(cls[off:off + L].mean(dim=0))
+            off += L
+        return torch.stack(pooled)                        # (N, D)
+
     def _encode_video_legacy(self, frames_bgr: np.ndarray | torch.Tensor) -> torch.Tensor:
         # One numpy→device hop here; keep every subsequent op on-device so we
         # don't ping-pong the unified-memory buffer.
