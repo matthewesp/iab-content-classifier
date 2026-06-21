@@ -205,6 +205,87 @@ FOLDER_TO_UID: dict[str, str] = {
     "snowball_search_Food_Allergies": "219",
     "snowball_search_healthy_cooking_and_eating": "221",        # -> Healthy Cooking and Eating
     "snowball_search_Non-Alcoholic_Beverages": "222",
+
+    # --- Genres (root SPSHQ5) ---
+    "snowball_search_Action_Adventure": "325",                  # -> Action/Adventure
+    "snowball_search_Animation_and_Anime": "641",              # -> Animation & Anime
+    "snowball_search_Biographies": "44",
+    "snowball_search_Comedy": "646",
+    "snowball_search_Documentary": "332",
+    "snowball_search_Drama": "647",
+    "snowball_search_Factual": "648",
+    "snowball_search_Family_Children": "645",                   # -> Family/Children
+    "snowball_search_Fantasy": "335",
+    "snowball_search_History": "EZWB7V",
+    "snowball_search_Holiday_Genre": "649",                     # Genres > Holiday
+    "snowball_search_Horror_Genre": "336",                      # -> Horror
+    "snowball_search_Lifestyle_Genre": "TIFQA5",               # -> Lifestyle
+    "snowball_search_Music_Video": "650",
+    "snowball_search_Musical": "156",
+    "snowball_search_Mystery": "331",
+    "snowball_search_Nature": "VKIV56",
+    "snowball_search_Public_Radio": "376",
+    "snowball_search_Reality_Tv": "651",                        # -> Reality TV
+    "snowball_search_Romance": "326",
+    "snowball_search_Science_Fiction": "652",                   # Genres > Science Fiction
+    "snowball_search_Soap_Opera": "642",
+    "snowball_search_Special_Interest_Indie_Art_House": "643",  # -> Special Interest (Indie/Art House)
+    "snowball_search_Sports_Radio": "370",
+    "snowball_search_Talk_Radio": "371",
+    "snowball_search_Talk_show": "A0AH3G",                      # -> Talk Show
+    "snowball_search_Thrillers_genre": "700",                   # -> Thriller
+    "snowball_search_True_Crime": "KHPC5A",
+    "snowball_search_Western_Genre": "KHPC6A",                  # -> Western
+    "snowball_search_Young_Adult_Genre": "51",                  # -> Young Adult
+
+    # --- Healthy Living (root 223) ---
+    "snowball_search_Children_Health": "224",                   # -> Children's Health
+    "snowball_search_Participant_Sports": "226",               # Fitness and Exercise > Participant Sports
+    "snowball_search_Running_and_Jogging": "227",              # Fitness and Exercise > Running and Jogging
+    "snowball_search_Mens_Health": "228",                       # -> Men's Health
+    "snowball_search_Nutrition": "229",
+    "snowball_search_Senior_Health": "230",
+    "snowball_search_Weight_Loss": "231",
+    "snowball_search_Herbs_and_Supplements": "234",            # Wellness > Alternative Medicine > Herbs and Supplements
+    "snowball_search_Holistic_Health": "235",                  # ... > Holistic Health
+    "snowball_search_Physical_Therapy": "236",                 # Wellness > Physical Therapy
+    "snowball_search_Smoking_Cessation": "237",                # Wellness > Smoking Cessation
+    "snowball_search_Womens_Health": "238",                     # -> Women's Health
+
+    # --- Hobbies & Interests (root 239) ---
+    "snowball_search_Antiquing_and_Antiques": "240",
+    "snowball_search_Beadwork": "249",                          # Arts and Crafts > Beadwork
+    "snowball_search_Candle_and_Soap_Making": "250",
+    "snowball_search_Drawing_and_Sketching": "251",
+    "snowball_search_Jewelry_making": "252",                    # -> Jewelry Making
+    "snowball_search_Needle_Work": "253",                       # -> Needlework
+    "snowball_search_Painting": "254",
+    "snowball_search_Photography": "255",
+    "snowball_search_Scrapbooking": "256",
+    "snowball_search_Woodworking": "257",
+    "snowball_search_Beekeeping": "258",
+    "snowball_search_Birdwatching": "259",
+    "snowball_search_Cigars": "260",
+    "snowball_search_Comic_book_collecting": "262",            # Collecting > Comic Books
+    "snowball_search_Stamp_and_Coin_collecting": "263",        # Collecting > Stamps and Coins
+    "snowball_search_Audio_Production": "265",                  # Content Production > Audio Production
+    "snowball_search_Freelance_Writing": "266",
+    "snowball_search_Screenwriting": "267",
+    "snowball_search_Video_Production": "268",
+    "snowball_search_Board_Games_and_puzzles": "270",          # Games and Puzzles > Board Games and Puzzles
+    "snowball_search_Card_Games": "271",
+    "snowball_search_Roleplaying_Games": "272",
+    "snowball_search_Genealogy_and_Ancestry": "273",
+    "snowball_search_Magic_and_Illusion": "241",
+    "snowball_search_Model_Toys": "242",
+    "snowball_search_Musical_Instruments": "243",
+    "snowball_search_Paranormal_Phenomea": "244",             # [sic] -> Paranormal Phenomena
+    "snowball_search_Radio_Control": "245",
+    "snowball_search_Sci_fi_and_Fantasy": "246",               # Hobbies > Sci-fi and Fantasy
+    "snowball_search_Workshops_and_Classes": "247",
+
+    # --- Holidays (root 1KXCLD) ---
+    "snowball_search_National_and_Civic_Holidays": "157",       # -> National & Civic Holidays
 }
 
 
