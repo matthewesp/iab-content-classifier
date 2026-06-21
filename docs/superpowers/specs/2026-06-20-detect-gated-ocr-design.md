@@ -78,8 +78,10 @@ New fields, all tunable and added to `ocr_params` so the per-video OCR cache
 auto-invalidates when behavior changes:
 
 - `detect_gate: bool = True` — default on (lossless).
-- `ocr_region_dedup_threshold: float` — small conservative default; `0` disables
-  Feature 2.
+- `ocr_region_dedup_threshold: float` — mean grayscale absdiff on the region
+  tile, same 0–255 scale as the existing `ocr_dedup_threshold` (default `8.0`).
+  Start at `8.0` and calibrate against the equivalence/region tests; `0`
+  disables Feature 2.
 
 Detector defaults (`text_threshold`, `low_text`, `min_size`, etc.) use EasyOCR's
 defaults unless a need to expose them arises.
