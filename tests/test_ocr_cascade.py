@@ -125,6 +125,54 @@ def test_region_dedup_skips_unchanged_region_but_not_changed(monkeypatch=None):
     assert {h.text for h in hits} == {"HELLO", "WORLD"}
 
 
+def test_ocr_region_crops_to_padded_caption_band():
+    """Detection input is cropped to the caption band (±pad) in caption_only
+    mode, and is the full frame otherwise."""
+    import numpy as np
+    from pipeline import VideoClassifier
+
+    clf = VideoClassifier(warn_untrained=False, cache_root=None)
+    clf.caption_min_y, clf.caption_max_y = 0.20, 0.70
+    clf.ocr_detect_band_pad = 0.05
+    frame = np.zeros((1000, 400, 3), dtype=np.uint8)
+
+    clf.caption_only = True
+    crop, y_off = clf._ocr_region(frame)
+    assert y_off == 150                       # (0.20 - 0.05) * 1000
+    assert crop.shape[0] == 600               # (0.75 - 0.15) * 1000
+    assert crop.shape[1] == 400               # full width (vertical crop only)
+
+    clf.caption_only = False
+    full, off = clf._ocr_region(frame)
+    assert off == 0 and full.shape[0] == 1000
+
+
+def test_crop_path_yields_fullframe_bbox_coordinates():
+    """Boxes detected on the crop must be shifted back to full-frame coords
+    before the caption filter / OCRHit, so downstream geometry is unchanged."""
+    import numpy as np
+    from pipeline import VideoClassifier
+
+    clf = VideoClassifier(warn_untrained=False, cache_root=None)
+    clf.caption_only = True
+    clf.caption_min_y, clf.caption_max_y = 0.20, 0.70
+    clf.ocr_detect_band_pad = 0.05            # crop starts at y=150 for H=1000
+    clf.ocr_region_dedup_threshold = 0.0
+
+    H, W = 1000, 400
+    frame = np.zeros((H, W, 3), dtype=np.uint8)
+    clf.vp.iter_frames = lambda _p: iter([(0, 0.0, frame)])
+    # detection returns a box in CROP coords: y 100..160 → full-frame 250..310.
+    clf.vp.detect_text = lambda _img: ([[50, 300, 100, 160]], [])
+    quad_crop = [[50, 100], [300, 100], [300, 160], [50, 160]]
+    clf.vp.recognize_text = lambda _img, h, f: [(quad_crop, "HELLO WORLD", 0.99)]
+
+    _, hits = clf._scan_video(VID, timings={})
+    assert len(hits) == 1, hits
+    ys = [y for _, y in hits[0].bbox]
+    assert min(ys) == 250 and max(ys) == 310, hits[0].bbox   # shifted by +150
+
+
 def _run_all():
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     failed = 0

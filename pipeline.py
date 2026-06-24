@@ -109,6 +109,13 @@ class VideoClassifier:
         # and would merge distinct captions. Enable (e.g. 8.0) only for content
         # with static text on static backgrounds. See the 2026-06-20 design doc.
         ocr_region_dedup_threshold: float = 0.0,
+        # In caption_only mode, crop to the caption band (±this pad) before OCR
+        # *detection*. Detection is ~80% of OCR cost and scales with image area,
+        # so a vertical-band crop roughly halves it. The pad keeps captions whose
+        # center is in-band but whose glyphs extend past the edge from being
+        # clipped. Boxes are shifted back to full-frame coords after recognition,
+        # so the caption geometry filter and OCRHit bboxes are unchanged.
+        ocr_detect_band_pad: float = 0.05,
         router_weights_dir: Path | None = Path("models"),
         cache_root: Path | None = Path("data/cache"),
         force_leaf: bool = False,
@@ -189,6 +196,7 @@ class VideoClassifier:
         # camera content.
         self.ocr_dedup_threshold = ocr_dedup_threshold
         self.ocr_region_dedup_threshold = ocr_region_dedup_threshold
+        self.ocr_detect_band_pad = ocr_detect_band_pad
 
     def extract_features(
         self,
@@ -224,6 +232,7 @@ class VideoClassifier:
             "sample_fps": self.vp.sample_fps,
             "ocr_dedup_threshold": self.ocr_dedup_threshold,
             "ocr_region_dedup_threshold": self.ocr_region_dedup_threshold,
+            "ocr_detect_band_pad": self.ocr_detect_band_pad,
             "ocr_min_confidence": self.vp.ocr_min_confidence,
             "caption_only": self.caption_only,
             "caption_min_y": self.caption_min_y,
@@ -379,6 +388,7 @@ class VideoClassifier:
             "sample_fps": self.vp.sample_fps,
             "ocr_dedup_threshold": self.ocr_dedup_threshold,
             "ocr_region_dedup_threshold": self.ocr_region_dedup_threshold,
+            "ocr_detect_band_pad": self.ocr_detect_band_pad,
             "ocr_min_confidence": self.vp.ocr_min_confidence,
             "caption_only": self.caption_only,
             "caption_min_y": self.caption_min_y,
@@ -636,9 +646,14 @@ class VideoClassifier:
 
             t_ocr = time.perf_counter() if timings is not None else 0.0
 
+            # Crop to the caption band before detection (detection is ~80% of OCR
+            # cost and scales with area). Boxes come back in crop coords; y_off
+            # shifts them to full-frame for the geometry filter + OCRHit.
+            ocr_input, y_off = self._ocr_region(frame)
+
             # Detect gate (Feature 1, lossless): find text boxes; if none, the
             # recognizer would return nothing anyway, so skip it.
-            horizontal_list, free_list = self.vp.detect_text(frame)
+            horizontal_list, free_list = self.vp.detect_text(ocr_input)
             detect_calls += 1
             if not horizontal_list and not free_list:
                 if timings is not None:
@@ -650,7 +665,7 @@ class VideoClassifier:
             # as the last frame we recognized, the caption hasn't changed — skip
             # recognition and emit nothing (the text was captured the first time).
             if self.ocr_region_dedup_threshold > 0:
-                tile = self._region_tile(frame, horizontal_list, free_list)
+                tile = self._region_tile(ocr_input, horizontal_list, free_list)
                 if (tile is not None and last_region_tile is not None
                         and tile.shape == last_region_tile.shape
                         and float(cv2.absdiff(tile, last_region_tile).mean())
@@ -663,7 +678,7 @@ class VideoClassifier:
             else:
                 tile = None
 
-            results = self.vp.recognize_text(frame, horizontal_list, free_list)
+            results = self.vp.recognize_text(ocr_input, horizontal_list, free_list)
             recognize_calls += 1
             if timings is not None:
                 self._mps_sync()
@@ -673,6 +688,8 @@ class VideoClassifier:
             for bbox, text, conf in results:
                 if conf < self.vp.ocr_min_confidence:
                     continue
+                # Shift crop-relative boxes back to full-frame coords.
+                bbox = [(x, y + y_off) for x, y in bbox]
                 if self.caption_only and not self._is_caption_like(bbox, h, w, text):
                     continue
                 ocr_hits.append(OCRHit(
@@ -694,6 +711,22 @@ class VideoClassifier:
             timings["recognize_calls"] = float(recognize_calls)
             timings["region_skipped"] = float(region_skipped)
         return np.stack(frames), ocr_hits
+
+    def _ocr_region(self, frame_bgr: np.ndarray) -> tuple[np.ndarray, int]:
+        """Sub-image to run OCR detection on, plus its y-offset in the full frame.
+
+        In caption_only mode this is the caption band (caption_min_y..max_y)
+        padded by ocr_detect_band_pad, cropped vertically (full width). Detection
+        cost scales with area, so this roughly halves it. Otherwise returns the
+        whole frame with offset 0."""
+        if not self.caption_only:
+            return frame_bgr, 0
+        h = frame_bgr.shape[0]
+        y0 = int(max(0.0, self.caption_min_y - self.ocr_detect_band_pad) * h)
+        y1 = int(min(1.0, self.caption_max_y + self.ocr_detect_band_pad) * h)
+        if y1 - y0 < 2:                       # degenerate band → fall back to full frame
+            return frame_bgr, 0
+        return frame_bgr[y0:y1, :], y0
 
     @staticmethod
     def _region_tile(

@@ -134,6 +134,37 @@ Implemented in `tests/test_ocr_cascade.py` (standalone-runnable; no pytest dep):
    a frame with a genuinely different region is still recognized; no text is
    invented.
 
+## Follow-up (2026-06-23): caption-band crop before detection
+
+Profiling the as-built cascade showed **detection — not recognition — is the
+dominant OCR cost**: on `data/test_vids/`, detect averaged **167 ms/call** vs
+recognize **61 ms/call** (detection ≈ **80%** of OCR wall time). The detect-gate
+only saves the cheaper 20%; the real lever is detection cost.
+
+**Shipped:** in `caption_only` mode, crop to the caption band
+(`caption_min_y..caption_max_y`, padded by `ocr_detect_band_pad=0.05`) before
+running detection, then shift boxes back to full-frame coords after recognition.
+Detection scales with image area, so the vertical-band crop roughly halves it.
+Vertical crop only (full width), since the caption filter only bounds `y`.
+
+Measured on the test clips (same band filter, toggling only the crop):
+- OCR wall-time **down 44–55%**.
+- Captured text **byte-identical** on the clean clip; on the noisy clip the only
+  changes were different OCR-error spellings of the *same* caption (no semantic
+  loss — the downstream consumer is a text classifier).
+
+Config keys added to `ocr_params` (cache-invalidating): `ocr_detect_band_pad`.
+
+**Rejected (measured, did not separate on edge-rich social video):**
+- *Cheap text-likelihood pre-gate* (Canny edge density): text vs textless frame
+  distributions fully overlap (text median 0.093, textless 0.079) — edge density
+  tracks scene complexity, not text presence.
+- *Edge-mask region-dedup* (Canny instead of Otsu): same-caption frames still
+  overlap different-caption frames. Region-dedup stays OFF by default.
+
+A real text-presence pre-classifier (MSER+stroke-width or a tiny trained CNN)
+could cut detection *count*, but is a heavier, test-first experiment — deferred.
+
 ## Out of Scope
 
 - Per-box (vs union) region signatures — possible future refinement.
